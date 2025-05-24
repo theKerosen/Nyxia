@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/cache/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cache/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/internal/http/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/internal/http/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/internal/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/internal/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/NekoffeeClient/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/NekoffeeClient/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/entities/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/entities/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/event/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/event/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/exception/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/exception/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-api/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-builder-util/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-builder-util/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-core/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-core/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-gateway-client/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-gateway-client/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-http/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-http/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-json-util/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-json-util/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-model/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-model/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-commands/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-commands/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-config/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-config/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-database/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-database/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+  </component>
+</project>
