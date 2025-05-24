@@ -136,20 +136,20 @@ Siga estas instruções para configurar e rodar o NyxiaBot em seu próprio servi
 
 ## 🗺️ Estrutura do Projeto
 
-Este projeto é um monorepo Maven multi-módulo, organizado para promover modularidade e separação de responsabilidades.
+Este projeto é um monorepo Maven multi-módulo, organizado para promover modularidade e separação de responsabilidades. <br>
 
-nekoffee-project/
-├── nekoffee-api/ # Definições de API (interfaces, DTOs de dados de envio, eventos)
-├── nekoffee-core/ # Nucleo do projeto, implementação do cliente
-├── nekoffee-model/ # Implementações das entidades da API (MessageImpl, UserImpl, etc.)
-├── nekoffee-http/ # Cliente HTTP (OkHttp) para comunicação REST com o Discord
-├── nekoffee-gateway-client/ # Cliente WebSocket para o Discord Gateway (eventos em tempo real)
-├── nekoffee-json-util/ # Utilitários de serialização/desserialização JSON (Jackson)
-├── nekoffee-builder-util/ # Construtores de mensagens e embeds (MessageBuilder, EmbedBuilder)
-├── nyxiabot-commands/ # Framework de comando e implementações de comandos específicos do bot
-├── nyxiabot-config/ # Gerenciamento de configurações do bot
-├── nyxiabot-database/ # Gerenciamento do banco de dados SQLite (JDBC)
-└── nyxiabot/ # Módulo da aplicação principal (contém a classe main do bot)
+nekoffee-project/ <br>
+├── nekoffee-api/ > Definições de API (interfaces, DTOs de dados de envio, eventos) <br>
+├── nekoffee-core/ > Nucleo do projeto, implementação do cliente <br>
+├── nekoffee-model/ > Implementações das entidades da API (MessageImpl, UserImpl, etc.) <br>
+├── nekoffee-http/ > Cliente HTTP (OkHttp) para comunicação REST com o Discord <br>
+├── nekoffee-gateway-client/ > Cliente WebSocket para o Discord Gateway (eventos em tempo real) <br>
+├── nekoffee-json-util/ > Utilitários de serialização/desserialização JSON (Jackson) <br>
+├── nekoffee-builder-util/ > Construtores de mensagens e embeds (MessageBuilder, EmbedBuilder) <br>
+├── nyxiabot-commands/ > Framework de comando e implementações de comandos específicos do bot <br>
+├── nyxiabot-config/ > Gerenciamento de configurações do bot <br>
+├── nyxiabot-database/ > Gerenciamento do banco de dados SQLite (JDBC) <br>
+└── nyxiabot/ > Módulo da aplicação principal (contém a classe main do bot) <br>
 
 
 
