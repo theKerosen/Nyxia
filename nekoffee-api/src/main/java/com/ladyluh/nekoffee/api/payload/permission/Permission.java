@@ -6,11 +6,11 @@ import java.util.EnumSet;
 /**
  * Representa as permissões do Discord.
  * Os valores são baseados nos bitwise flags da API do Discord.
- * Veja: https://discord.com/developers/docs/topics/permissions#permissions-bitwise-permission-flags
+ * Veja: <a href="https://discord.com/developers/docs/topics/permissions#permissions-bitwise-permission-flags">...</a>
  */
 public enum Permission {
 
-    CREATE_INSTANT_INVITE(1L << 0),
+    CREATE_INSTANT_INVITE(1L),
     KICK_MEMBERS(1L << 1),
     BAN_MEMBERS(1L << 2),
     ADMINISTRATOR(1L << 3),

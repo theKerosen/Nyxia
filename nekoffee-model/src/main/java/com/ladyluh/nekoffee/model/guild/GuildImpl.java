@@ -84,11 +84,7 @@ public class GuildImpl extends AbstractDiscordEntity implements Guild {
 
 
         return client.getGuildRoles(getId())
-                .thenApply(retrievedRoles -> {
-
-
-                    return retrievedRoles;
-                });
+                .thenApply(retrievedRoles -> retrievedRoles);
     }
 
 

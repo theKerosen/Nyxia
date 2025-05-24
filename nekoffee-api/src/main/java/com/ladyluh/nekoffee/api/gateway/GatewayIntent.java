@@ -5,7 +5,7 @@ package com.ladyluh.nekoffee.api.gateway;
  * Veja: https://discord.com/developers/docs/topics/gateway#gateway-intents
  */
 public enum GatewayIntent {
-    GUILDS(1 << 0),
+    GUILDS(1),
     GUILD_MEMBERS(1 << 1),
     GUILD_MODERATION(1 << 2),
     GUILD_EMOJIS_AND_STICKERS(1 << 3),

@@ -209,7 +209,6 @@ public class TempChannelCommand implements Command {
             denyPerms.addAll(EnumSet.of(Permission.CONNECT, Permission.SPEAK, Permission.VIEW_CHANNEL));
             actionVerb = "proibido";
         } else {
-            actionVerb = "";
             return ctx.reply("Subcomando de permissão desconhecido.");
         }
 

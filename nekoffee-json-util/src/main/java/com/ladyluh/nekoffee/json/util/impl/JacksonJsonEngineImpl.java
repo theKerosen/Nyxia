@@ -36,7 +36,6 @@ public class JacksonJsonEngineImpl implements JsonEngine {
         } catch (JsonProcessingException e) {
             // LOGAR A EXCEÇÃO ORIGINAL DO JACKSON
             System.err.println("Jackson Deserialization Exception for class " + clazz.getName() + ": " + e.getMessage());
-            e.printStackTrace(); // <<<< IMPORTANTE PARA VER O STACK TRACE DO JACKSON
             throw new RuntimeException("Erro ao desserializar JSON para objeto: " + clazz.getSimpleName(), e);
         }
     }
@@ -47,7 +46,6 @@ public class JacksonJsonEngineImpl implements JsonEngine {
             return objectMapper.readValue(jsonString, typeReference);
         } catch (JsonProcessingException e) {
             System.err.println("Jackson Deserialization Exception for TypeReference " + typeReference.getType() + ": " + e.getMessage());
-            e.printStackTrace(); // <<<< IMPORTANTE
             throw new RuntimeException("Erro ao desserializar JSON para tipo genérico: " + typeReference.getType(), e);
         }
     }

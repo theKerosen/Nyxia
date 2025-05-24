@@ -94,7 +94,7 @@ public class MessageBuilder {
     
 
     public boolean isEmpty() {
-        return content.length() == 0; // && embeds.isEmpty(); // Adicionar quando tiver embeds
+        return content.isEmpty(); // && embeds.isEmpty(); // Adicionar quando tiver embeds
     }
 
     // Limpa o builder para reutilização.

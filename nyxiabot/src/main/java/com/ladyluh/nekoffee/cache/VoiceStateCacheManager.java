@@ -99,7 +99,7 @@ public class VoiceStateCacheManager {
     public boolean isVoiceChannelEmpty(String guildId, String channelId) {
         Set<String> membersInChannel = Optional.ofNullable(guildVoiceChannelMembers.get(guildId))
                 .map(channels -> channels.get(channelId))
-                .orElse(new ConcurrentSkipListSet<String>());
+                .orElse(new ConcurrentSkipListSet<>());
 
         LOGGER.debug("VoiceStateCacheManager: Canal {} na guild {} tem {} membros no cache. Vazio? {}",
                 channelId, guildId, membersInChannel.size(), membersInChannel.isEmpty());

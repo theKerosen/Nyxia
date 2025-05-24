@@ -3,6 +3,7 @@ package com.ladyluh.nekoffee.gateway.client.impl;
 import com.ladyluh.nekoffee.api.exception.NekoffeeException;
 import com.ladyluh.nekoffee.gateway.client.RestClient;
 import okhttp3.*;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.Map;
@@ -15,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 public class OkHttpRestClientImpl implements RestClient {
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
-    private OkHttpClient httpClient;
+    private final OkHttpClient httpClient;
     private String botToken;
 
     private final ExecutorService callbackExecutor = Executors.newCachedThreadPool(
@@ -96,13 +97,13 @@ public class OkHttpRestClientImpl implements RestClient {
         CompletableFuture<String> future = new CompletableFuture<>();
         httpClient.newCall(request).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NotNull Call call, @NotNull IOException e) {
 
                 callbackExecutor.submit(() -> future.completeExceptionally(new NekoffeeException("Request failed: " + request.method() + " " + request.url(), e)));
             }
 
             @Override
-            public void onResponse(Call call, Response response) throws IOException {
+            public void onResponse(@NotNull Call call, @NotNull Response response) {
 
                 try (ResponseBody responseBody = response.body()) {
                     final String bodyString = responseBody != null ? responseBody.string() : null;

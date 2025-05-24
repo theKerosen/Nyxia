@@ -56,6 +56,14 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
     private CompletableFuture<Void> connectionFuture;
     private final AtomicReference<GatewayState> state = new AtomicReference<>(GatewayState.DISCONNECTED);
 
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
     private enum GatewayState {
         DISCONNECTED, CONNECTING, IDENTIFYING, CONNECTED, RESUMING, SHUTTING_DOWN
     }
@@ -76,9 +84,6 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         public Integer s;
         @JsonProperty("t")
         public String t;
-
-        public GatewayPayload() {
-        }
 
         public GatewayPayload(int op, T d) {
             this.op = op;
@@ -277,7 +282,7 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         public void onMessage(@NotNull WebSocket ws, @NotNull String text) {
             LOGGER.debug("GATEWAY RECV <- {}", text);
             try {
-                GatewayPayload<JsonNode> genericPayloadWrapper = jsonEngine.fromJsonString(text, new TypeReference<GatewayPayload<JsonNode>>() {
+                GatewayPayload<JsonNode> genericPayloadWrapper = jsonEngine.fromJsonString(text, new TypeReference<>() {
                 });
 
                 if (genericPayloadWrapper.s != null) {
@@ -321,7 +326,6 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
                         LOGGER.info("Gateway READY received! Session ID: {}", readyData.getSessionId());
                         state.set(GatewayState.CONNECTED);
                         sessionId = readyData.getSessionId();
-                        String resumeGatewayUrl = readyData.getResumeGatewayUrl();
 
                         if (connectionFuture != null && !connectionFuture.isDone()) {
                             connectionFuture.complete(null);

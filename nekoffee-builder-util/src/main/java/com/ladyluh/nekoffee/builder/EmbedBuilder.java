@@ -1,6 +1,7 @@
 package com.ladyluh.nekoffee.builder;
 
 import com.ladyluh.nekoffee.api.payload.embed.*;
+import org.jetbrains.annotations.NotNull;
 
 import java.awt.Color;
 import java.time.OffsetDateTime;
@@ -151,13 +152,15 @@ public class EmbedBuilder {
         }
 
 
+        return getEmbedSendPayload();
+    }
+
+    private @NotNull EmbedSendPayload getEmbedSendPayload() {
         EmbedSendPayload payload = new EmbedSendPayload();
         payload.setTitle(this.title);
         payload.setDescription(this.description);
         payload.setUrl(this.url);
-        if (this.timestamp != null) {
-            // payload.setTimestamp(this.timestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)); // Adicionar campo timestamp ao EmbedSendPayload
-        }
+        // payload.setTimestamp(this.timestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         payload.setColor(this.color);
         payload.setFooter(this.footer);
         payload.setImage(this.image);

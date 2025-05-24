@@ -83,7 +83,7 @@ public class TemporaryChannelListener implements EventListener {
                         String ownedTempChannelId = existingUserChannelOpt.get().channelId;
                         if (!ownedTempChannelId.equals(newChannelId)) {
                             LOGGER.info("Usuário {} saiu/mudou do seu canal temporário {}. Verificando para deleção.", userId, ownedTempChannelId);
-                            checkAndDeleteChannelIfEmpty(guildId, ownedTempChannelId, userId);
+                            checkAndDeleteChannelIfEmpty(guildId, ownedTempChannelId);
                         } else {
                             LOGGER.debug("Usuário {} ainda está no seu canal temporário {} ou newChannelId é igual (nenhuma mudança relevante para deleção).", userId, ownedTempChannelId);
                         }
@@ -108,7 +108,7 @@ public class TemporaryChannelListener implements EventListener {
                     .thenCompose(userPrefsOpt -> {
                         UserChannelPreference prefs = userPrefsOpt.orElse(new UserChannelPreference(guildId, userId));
 
-                        String tempChannelName = getString(member, prefs);
+                        String tempChannelName = getString(member);
 
                         LOGGER.info("Usuário {} ({}) entrou no Hub. Criando canal: {}", member.getEffectiveName(), userId, tempChannelName);
 
@@ -123,7 +123,7 @@ public class TemporaryChannelListener implements EventListener {
                                             .thenApply(v -> createdChannel);
                                 })
                                 .thenCompose(createdChannel -> {
-                                    CompletableFuture<Void> permissionsFuture = CompletableFuture.completedFuture(null);
+                                    CompletableFuture<Void> permissionsFuture;
                                     if (prefs.defaultLocked == 1) {
                                         LOGGER.info("Canal {} será criado como trancado por preferência do usuário.", createdChannel.getId());
 
@@ -151,9 +151,7 @@ public class TemporaryChannelListener implements EventListener {
                                             .thenApply(v -> createdChannel);
                                 });
                     })
-                    .thenAccept(finalChannel -> {
-                        LOGGER.info("Usuário {} movido para seu canal temporário {}.", member.getEffectiveName(), finalChannel.getName());
-                    })
+                    .thenAccept(finalChannel -> LOGGER.info("Usuário {} movido para seu canal temporário {}.", member.getEffectiveName(), finalChannel.getName()))
                     .exceptionally(ex -> {
                         LOGGER.error("Falha durante a criação/configuração/movimentação do canal temporário para {}:", member.getEffectiveName(), ex);
                         return null;
@@ -175,7 +173,7 @@ public class TemporaryChannelListener implements EventListener {
         return channelPayload;
     }
 
-    private @NotNull String getString(Member member, UserChannelPreference prefs) {
+    private @NotNull String getString(Member member) {
         String tempChannelName;
 
         tempChannelName = (this.temporaryChannelNamePrefix != null ? this.temporaryChannelNamePrefix : "Sala de ") + member.getEffectiveName();
@@ -184,7 +182,7 @@ public class TemporaryChannelListener implements EventListener {
         return tempChannelName;
     }
 
-    private void checkAndDeleteChannelIfEmpty(String guildId, String channelId, String userIdWhoLeftOrMoved) {
+    private void checkAndDeleteChannelIfEmpty(String guildId, String channelId) {
         dbManager.getTemporaryChannel(channelId)
                 .thenAccept(tempChannelOpt -> {
                     if (tempChannelOpt.isEmpty()) {
@@ -196,7 +194,7 @@ public class TemporaryChannelListener implements EventListener {
 
                     if (isChannelActuallyEmpty) {
                         LOGGER.info("Canal temporário {} está vazio. Deletando.", channelId);
-                        deleteTemporaryChannel(channelId, tempChannelRecord.ownerUserId);
+                        deleteTemporaryChannel(channelId);
                     } else {
                         LOGGER.debug("Canal temporário {} NÃO está vazio. Não deletando por esta ação. (Membros no cache: {})",
                                 channelId, voiceStateCacheManager.guildVoiceChannelMembers.get(guildId).get(channelId).size());
@@ -208,7 +206,7 @@ public class TemporaryChannelListener implements EventListener {
                 });
     }
 
-    public void deleteTemporaryChannel(String channelId, String ownerUserId) {
+    public void deleteTemporaryChannel(String channelId) {
         if (channelId == null) return;
 
         client.deleteChannel(channelId)

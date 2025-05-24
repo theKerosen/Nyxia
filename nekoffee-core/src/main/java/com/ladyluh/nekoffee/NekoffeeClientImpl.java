@@ -162,9 +162,7 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
         LOGGER.debug("Editing permissions for target {} in channel {}: {}", targetId, channelId, jsonPayload);
 
         return restClient.put(url, jsonPayload, Collections.emptyMap())
-                .thenAccept(responseBody -> {
-                    LOGGER.info("Permissions for target {} in channel {} edited successfully.", targetId, channelId);
-                })
+                .thenAccept(responseBody -> LOGGER.info("Permissions for target {} in channel {} edited successfully.", targetId, channelId))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to edit permissions for target {} in channel {}: {}", targetId, channelId, throwable.getMessage(), throwable);
                     throw new NekoffeeException("Failed to edit channel permissions", throwable);
@@ -238,9 +236,7 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
 
 
         return restClient.patch(url, jsonPayload, Collections.emptyMap())
-                .thenAccept(responseBody -> {
-                    LOGGER.info("Successfully modified voice channel for member {} in guild {}.", userId, guildId);
-                })
+                .thenAccept(responseBody -> LOGGER.info("Successfully modified voice channel for member {} in guild {}.", userId, guildId))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to modify voice channel for member {} in guild {}: {}", userId, guildId, throwable.getMessage(), throwable);
                     throw new NekoffeeException("Failed to modify member's voice channel", throwable);
@@ -441,7 +437,9 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
 
     @Override
     public CompletableFuture<Member> getGuildMember(String guildId, String userId) {
-        if (!loggedIn) { /* ... */ }
+        if (!loggedIn) {
+            return CompletableFuture.failedFuture(new NekoffeeException("Not logged in. Call login() first."));
+        }
         Objects.requireNonNull(guildId, "Guild ID cannot be null");
         Objects.requireNonNull(userId, "User ID cannot be null");
 
@@ -477,11 +475,7 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
 
 
         return restClient.put(url, null, Collections.emptyMap())
-                .thenAccept(responseBody -> {
-
-
-                    LOGGER.info("Role {} added to member {} in guild {} successfully.", roleId, userId, guildId);
-                })
+                .thenAccept(responseBody -> LOGGER.info("Role {} added to member {} in guild {} successfully.", roleId, userId, guildId))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to add role {} to member {} in guild {}: {}", roleId, userId, guildId, throwable.getMessage(), throwable);
                     throw new NekoffeeException("Failed to add role to member", throwable);
@@ -501,10 +495,7 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
         LOGGER.debug("Removing role {} from member {} in guild {}", roleId, userId, guildId);
 
         return restClient.delete(url, Collections.emptyMap())
-                .thenAccept(responseBody -> {
-
-                    LOGGER.info("Role {} removed from member {} in guild {} successfully.", roleId, userId, guildId);
-                })
+                .thenAccept(responseBody -> LOGGER.info("Role {} removed from member {} in guild {} successfully.", roleId, userId, guildId))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to remove role {} from member {} in guild {}: {}", roleId, userId, guildId, throwable.getMessage(), throwable);
                     throw new NekoffeeException("Failed to remove role from member", throwable);

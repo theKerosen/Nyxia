@@ -33,7 +33,7 @@ public class MessageEventListener implements EventListener {
     private final CommandManager commandManager;
     private final XPRoleService xpRoleService;
 
-    public MessageEventListener(ConfigManager config, NekoffeeClient client, DatabaseManager dbManager, CommandManager commandManager, XPRoleService xpRoleService) {
+    public MessageEventListener(NekoffeeClient client, DatabaseManager dbManager, CommandManager commandManager, XPRoleService xpRoleService) {
 
         this.client = client;
         this.dbManager = dbManager;
@@ -88,9 +88,7 @@ public class MessageEventListener implements EventListener {
 
                             // Atualizar DB E depois lidar com cargos/mensagens
                             dbManager.updateUserXP(currentXP.getGuildId(), currentXP.getUserId(), currentXP.getXp(), currentXP.getLevel(), currentXP.getLastMessageTimestamp())
-                                    .thenRun(() -> {
-                                        LOGGER.debug("{} ganhou {} XP. Total: {}, Nível: {}", author.getAsTag(), xpGained, currentXP.getXp(), currentXP.getLevel());
-                                    })
+                                    .thenRun(() -> LOGGER.debug("{} ganhou {} XP. Total: {}, Nível: {}", author.getAsTag(), xpGained, currentXP.getXp(), currentXP.getLevel()))
                                     .thenCompose(v -> { // thenCompose para encadear ações de nível
                                         if (leveledUp) {
                                             sendLevelUpMessage(channelId, author, currentXP.getLevel()); // Mensagem de level up

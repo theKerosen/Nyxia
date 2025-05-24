@@ -11,7 +11,7 @@ public interface Channel extends DiscordEntity {
 
     /**
      * @return O tipo deste canal.
-     * @see com.nekoffee.api.entities.channel.ChannelType
+     * @see com.ladyluh.nekoffee.api.entities.channel.ChannelType
      */
     ChannelType getType();
 

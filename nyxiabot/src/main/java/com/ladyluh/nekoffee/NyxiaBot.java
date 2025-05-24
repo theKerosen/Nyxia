@@ -39,7 +39,7 @@ public class NyxiaBot {
     private void setupListeners() {
         nekoffeeClient.addEventListener(new GuildEventListener(config, nekoffeeClient, databaseManager));
         nekoffeeClient.addEventListener(new LogEventListener(config, nekoffeeClient));
-        nekoffeeClient.addEventListener(new MessageEventListener(config, nekoffeeClient, databaseManager, commandManager, xpRoleService));
+        nekoffeeClient.addEventListener(new MessageEventListener(nekoffeeClient, databaseManager, commandManager, xpRoleService));
         nekoffeeClient.addEventListener(new TemporaryChannelListener(config, nekoffeeClient, databaseManager, voiceStateCacheManager));
     }
 
