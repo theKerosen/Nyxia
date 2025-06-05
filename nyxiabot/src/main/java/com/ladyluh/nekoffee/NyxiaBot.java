@@ -30,15 +30,15 @@ public class NyxiaBot {
         this.config = new ConfigManager();
         this.nekoffeeClient = Nekoffee.createDefault();
         this.databaseManager = new DatabaseManager("nyxiabot.db");
-        this.commandManager = new CommandManager(nekoffeeClient, config, databaseManager);
+        this.commandManager = new CommandManager(nekoffeeClient, config, databaseManager); // Passa config
         this.voiceStateCacheManager = new VoiceStateCacheManager();
-        this.xpRoleService = new XPRoleService(nekoffeeClient, config);
+        this.xpRoleService = new XPRoleService(nekoffeeClient, config); // Passa config
         setupListeners();
     }
 
     private void setupListeners() {
         nekoffeeClient.addEventListener(new GuildEventListener(config, nekoffeeClient, databaseManager));
-        nekoffeeClient.addEventListener(new LogEventListener(config, nekoffeeClient));
+        nekoffeeClient.addEventListener(new LogEventListener(config, nekoffeeClient, databaseManager));
         nekoffeeClient.addEventListener(new MessageEventListener(nekoffeeClient, databaseManager, commandManager, xpRoleService));
         nekoffeeClient.addEventListener(new TemporaryChannelListener(config, nekoffeeClient, databaseManager, voiceStateCacheManager));
     }

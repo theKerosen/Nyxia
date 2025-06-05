@@ -9,6 +9,9 @@ public class UserImpl extends AbstractDiscordEntity implements User {
     @JsonProperty("username")
     private String username;
 
+    @JsonProperty("global_name")
+    private String global_name;
+
     @JsonProperty("discriminator")
     private String discriminator;
 
@@ -33,6 +36,11 @@ public class UserImpl extends AbstractDiscordEntity implements User {
     @Override
     public String getDiscriminator() {
         return discriminator;
+    }
+
+    @Override
+    public String getGlobalName() {
+        return global_name;
     }
 
     @Override
@@ -81,6 +89,7 @@ public class UserImpl extends AbstractDiscordEntity implements User {
         return "UserImpl{" +
                 "id='" + id + '\'' +
                 ", username='" + username + '\'' +
+                ", global_name='" + global_name + '\'' +
                 ", discriminator='" + discriminator + '\'' +
                 ", bot=" + bot +
                 '}';

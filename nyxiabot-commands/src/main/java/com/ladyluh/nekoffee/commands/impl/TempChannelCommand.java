@@ -123,7 +123,7 @@ public class TempChannelCommand implements Command {
 
             case "nome":
                 if (ctx.getArgs().size() < 2) {
-                    return ctx.reply("Uso: `!sala nome <template>` (Use %username% para seu nome)");
+                    return ctx.reply("Uso: `!sala nome <template>` (Use %nome% para seu nome)");
                 }
                 String nameTemplate = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size())).trim();
                 if (nameTemplate.isEmpty() || nameTemplate.length() > 80) {
@@ -136,7 +136,7 @@ public class TempChannelCommand implements Command {
                         .thenCompose(v -> {
                             if (userTempChannelOpt.isPresent()) {
                                 String activeChannelId = userTempChannelOpt.get().channelId;
-                                String finalName = formatChannelName(nameTemplate, ctx.getAuthor().getUsername());
+                                String finalName = formatChannelName(nameTemplate, ctx.getAuthor().getGlobalName());
                                 if (finalName.length() > 100) finalName = finalName.substring(0, 100);
 
                                 ChannelModifyPayload namePayload = new ChannelModifyPayload();
@@ -231,9 +231,6 @@ public class TempChannelCommand implements Command {
         if (template == null || template.isEmpty()) {
             return "Sala de " + username;
         }
-        String name = template.replace("%username%", username);
-        name = name.replaceAll("[^a-zA-Z0-9-]", "").toLowerCase();
-        name = name.replaceAll("\\s+", "-");
-        return name;
+        return template.replace("%nome%", username);
     }
 }

@@ -85,6 +85,8 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         @JsonProperty("t")
         public String t;
 
+        public GatewayPayload() {}
+
         public GatewayPayload(int op, T d) {
             this.op = op;
             this.d = d;
@@ -344,7 +346,7 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
 
                     case "GUILD_MEMBER_ADD":
                         MemberImpl memberAdded = jsonEngine.fromJsonString(eventDataJson, MemberImpl.class);
-
+                        memberAdded.setNekoffeeClient(clientInstance);
                         GuildMemberAddEvent gmaEvent = new GuildMemberAddEvent(clientInstance, memberAdded);
                         eventDispatcher.dispatch(gmaEvent);
                         LOGGER.info("Dispatched GuildMemberAddEvent for user: {}", memberAdded.getUser() != null ? memberAdded.getUser().getAsTag() : memberAdded.getId());
@@ -378,7 +380,7 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
 
                     case "GUILD_MEMBER_UPDATE":
                         MemberImpl updatedMember = jsonEngine.fromJsonString(eventDataJson, MemberImpl.class);
-
+                        updatedMember.setNekoffeeClient(clientInstance); // <<<< ESSA LINHA É CRÍTICA AQUI >>>>
                         GuildMemberUpdateEvent gmuEvent = new GuildMemberUpdateEvent(clientInstance, updatedMember);
                         eventDispatcher.dispatch(gmuEvent);
                         LOGGER.info("Dispatched GuildMemberUpdateEvent for user: {}", updatedMember.getUser() != null ? updatedMember.getUser().getAsTag() : updatedMember.getId());

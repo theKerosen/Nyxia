@@ -448,11 +448,11 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
 
         return restClient.get(url, Collections.emptyMap())
                 .thenApply(responseBody -> {
+                    LOGGER.info("Received FULL JSON response for getGuildMember ({}): {}", userId, responseBody); // <<<< ADICIONE ESTE LOG
                     LOGGER.debug("Received response for getGuildMember (guild: {}, user: {}): {}", guildId, userId, responseBody);
                     MemberImpl member = jsonEngine.fromJsonString(responseBody, MemberImpl.class);
                     member.setGuildId(guildId);
-
-
+                    member.setNekoffeeClient(this);
                     return (Member) member;
                 })
                 .exceptionally(throwable -> {

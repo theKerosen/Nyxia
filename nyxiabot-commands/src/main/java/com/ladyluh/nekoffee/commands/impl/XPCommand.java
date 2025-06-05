@@ -75,7 +75,7 @@ public class XPCommand implements Command {
             String xpStatus = String.format("Nível **%d** (XP: %d/%d)", userXP.getLevel(), userXP.getXp(), calculateXpForLevel(userXP.getLevel() + 1));
 
             EmbedBuilder embed = new EmbedBuilder()
-                    .setTitle("📊 Status de XP de " + targetUser.getUsername())
+                    .setTitle("📊 Status de XP de " + escapeMarkdown(targetUser.getGlobalName()))
                     .setDescription(xpStatus)
                     .setColor(Color.BLUE)
                     .setThumbnail(targetUser.getEffectiveAvatarUrl())
@@ -126,6 +126,33 @@ public class XPCommand implements Command {
         });
     }
 
+    private static String escapeMarkdown(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        StringBuilder escapedText = new StringBuilder();
+        for (char c : text.toCharArray()) {
+            switch (c) {
+                case '*':   // Bold, Italic
+                case '_':   // Italic, Underline
+                case '~':   // Strikethrough
+                case '`':   // Inline code
+                case '|':   // Spoiler
+                case '[':   // Link
+                case ']':   // Link
+                case '(':   // Link
+                case ')':   // Link
+                case '\\':  // The escape character itself
+                    escapedText.append('\\');
+                    escapedText.append(c);
+                    break;
+                default:
+                    escapedText.append(c);
+                    break;
+            }
+        }
+        return escapedText.toString();
+    }
 
     private int calculateXpForLevel(int level) {
         if (level <= 0) return 100;

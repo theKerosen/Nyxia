@@ -14,6 +14,11 @@ public interface User extends DiscordEntity {
     String getDiscriminator();
 
     /**
+     * @return O nome global do usuário dentro do Discord.
+     */
+    String getGlobalName();
+
+    /**
      * @return O nome de usuário completo com discriminador (ex: "Nekoffee#0001" ou "nekoffee" se o discriminador for "0").
      */
     String getAsTag();

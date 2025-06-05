@@ -7,7 +7,6 @@ import com.ladyluh.nekoffee.api.event.EventListener;
 import com.ladyluh.nekoffee.builder.EmbedBuilder;
 import com.ladyluh.nekoffee.builder.MessageBuilder;
 import com.ladyluh.nekoffee.commands.CommandManager;
-import com.ladyluh.nekoffee.config.ConfigManager;
 import com.ladyluh.nekoffee.database.DatabaseManager;
 import com.ladyluh.nekoffee.model.gateway.MessageCreateEvent;
 import com.ladyluh.nekoffee.services.XPRoleService;
@@ -23,12 +22,11 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class MessageEventListener implements EventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageEventListener.class);
-
-    private final NekoffeeClient client;
-    private final DatabaseManager dbManager;
     private static final long XP_COOLDOWN_MILLIS = 60 * 1000;
     private static final int XP_MIN_PER_MESSAGE = 15;
     private static final int XP_MAX_PER_MESSAGE = 30;
+    private final NekoffeeClient client;
+    private final DatabaseManager dbManager;
     private final String commandPrefix;
     private final CommandManager commandManager;
     private final XPRoleService xpRoleService;
@@ -63,7 +61,7 @@ public class MessageEventListener implements EventListener {
         String guildIdInfo = guildId != null ? " (Guild: " + guildId + ")" : " (DM)";
         LOGGER.debug("Mensagem de {}{}: {}", author.getAsTag(), guildIdInfo, content);
 
-        // --- Lógica de XP ---
+
         if (guildId != null) {
             dbManager.getUserXP(guildId, author.getId())
                     .thenAccept(currentXP -> {
@@ -71,7 +69,7 @@ public class MessageEventListener implements EventListener {
 
                         if (now - currentXP.getLastMessageTimestamp() > XP_COOLDOWN_MILLIS) {
                             int xpGained = ThreadLocalRandom.current().nextInt(XP_MIN_PER_MESSAGE, XP_MAX_PER_MESSAGE + 1);
-                            int oldLevel = currentXP.getLevel(); // Armazene o nível antigo antes de atualizar XP
+                            int oldLevel = currentXP.getLevel();
                             currentXP.setXp(currentXP.getXp() + xpGained);
                             currentXP.setLastMessageTimestamp(now);
 
@@ -86,12 +84,12 @@ public class MessageEventListener implements EventListener {
                                 leveledUp = false;
                             }
 
-                            // Atualizar DB E depois lidar com cargos/mensagens
+
                             dbManager.updateUserXP(currentXP.getGuildId(), currentXP.getUserId(), currentXP.getXp(), currentXP.getLevel(), currentXP.getLastMessageTimestamp())
                                     .thenRun(() -> LOGGER.debug("{} ganhou {} XP. Total: {}, Nível: {}", author.getAsTag(), xpGained, currentXP.getXp(), currentXP.getLevel()))
-                                    .thenCompose(v -> { // thenCompose para encadear ações de nível
+                                    .thenCompose(v -> {
                                         if (leveledUp) {
-                                            sendLevelUpMessage(channelId, author, currentXP.getLevel()); // Mensagem de level up
+                                            sendLevelUpMessage(channelId, author, currentXP.getLevel());
                                             return xpRoleService.assignXPRoles(guildId, author.getId(), oldLevel, currentXP.getLevel());
                                         }
                                         return CompletableFuture.completedFuture(null);
@@ -108,7 +106,7 @@ public class MessageEventListener implements EventListener {
                     });
         }
 
-        // --- Lógica de Comando (usando o CommandManager) ---
+
         if (content.startsWith(commandPrefix)) {
             String commandLine = content.substring(commandPrefix.length()).trim();
             if (commandLine.isEmpty()) return;
@@ -117,6 +115,7 @@ public class MessageEventListener implements EventListener {
             String commandName = parts[0].toLowerCase();
             String argsString = parts.length > 1 ? parts[1] : "";
             List<String> argsList = Arrays.asList(argsString.split("\\s+"));
+
 
             commandManager.handleCommand(commandName, argsList, event);
         }
@@ -129,7 +128,7 @@ public class MessageEventListener implements EventListener {
 
     private void sendLevelUpMessage(String channelId, User user, int newLevel) {
         EmbedBuilder embed = new EmbedBuilder()
-                .setTitle("🎉 PARABÉNS, " + user.getUsername().toUpperCase() + "! 🎉")
+                .setTitle("🎉 PARABÉNS, " + escapeMarkdown(user.getGlobalName()))
                 .setDescription("Você alcançou o **Nível " + newLevel + "**!")
                 .setColor(new Color(0xFFD700))
                 .setThumbnail(user.getEffectiveAvatarUrl())
@@ -141,5 +140,33 @@ public class MessageEventListener implements EventListener {
                     LOGGER.error("Erro ao enviar mensagem de level up para {}:", user.getAsTag(), ex);
                     return null;
                 });
+    }
+
+    private static String escapeMarkdown(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        StringBuilder escapedText = new StringBuilder();
+        for (char c : text.toCharArray()) {
+            switch (c) {
+                case '*':   // Bold, Italic
+                case '_':   // Italic, Underline
+                case '~':   // Strikethrough
+                case '`':   // Inline code
+                case '|':   // Spoiler
+                case '[':   // Link
+                case ']':   // Link
+                case '(':   // Link
+                case ')':   // Link
+                case '\\':  // The escape character itself
+                    escapedText.append('\\');
+                    escapedText.append(c);
+                    break;
+                default:
+                    escapedText.append(c);
+                    break;
+            }
+        }
+        return escapedText.toString();
     }
 }

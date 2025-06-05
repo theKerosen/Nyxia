@@ -1,10 +1,7 @@
 package com.ladyluh.nekoffee.commands;
 
 import com.ladyluh.nekoffee.api.NekoffeeClient;
-import com.ladyluh.nekoffee.commands.impl.PingCommand;
-import com.ladyluh.nekoffee.commands.impl.TempChannelCommand;
-import com.ladyluh.nekoffee.commands.impl.TestCommand;
-import com.ladyluh.nekoffee.commands.impl.XPCommand;
+import com.ladyluh.nekoffee.commands.impl.*;
 import com.ladyluh.nekoffee.config.ConfigManager;
 import com.ladyluh.nekoffee.database.DatabaseManager;
 import com.ladyluh.nekoffee.model.gateway.MessageCreateEvent;
@@ -35,6 +32,7 @@ public class CommandManager {
         addCommand(new TestCommand());
         addCommand(new XPCommand(dbManager));
         addCommand(new TempChannelCommand(dbManager));
+        addCommand(new ConfigCommand(dbManager));
     }
 
     private void addCommand(Command command) {

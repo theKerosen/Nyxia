@@ -11,7 +11,6 @@ import java.util.concurrent.CompletableFuture;
 public class GuildMemberUpdateEvent extends AbstractEvent {
     private final Member member;
 
-
     public GuildMemberUpdateEvent(NekoffeeClient nekoffeeClient, Member member) {
         super(nekoffeeClient);
         this.member = member;

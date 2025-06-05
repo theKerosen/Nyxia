@@ -12,6 +12,7 @@ import com.ladyluh.nekoffee.api.payload.permission.Permission;
 import com.ladyluh.nekoffee.cache.VoiceStateCacheManager;
 import com.ladyluh.nekoffee.config.ConfigManager;
 import com.ladyluh.nekoffee.database.DatabaseManager;
+import com.ladyluh.nekoffee.database.GuildConfig;
 import com.ladyluh.nekoffee.database.TemporaryChannelRecord;
 import com.ladyluh.nekoffee.database.UserChannelPreference;
 import org.jetbrains.annotations.NotNull;
@@ -25,25 +26,17 @@ import java.util.concurrent.CompletableFuture;
 public class TemporaryChannelListener implements EventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(TemporaryChannelListener.class);
     private final NekoffeeClient client;
+    private final ConfigManager config;
     private final DatabaseManager dbManager;
-
-    private final String hubChannelId;
-    private final String temporaryChannelCategoryId;
-    private final String temporaryChannelNamePrefix;
     private final VoiceStateCacheManager voiceStateCacheManager;
 
     public TemporaryChannelListener(ConfigManager config, NekoffeeClient client, DatabaseManager dbManager, VoiceStateCacheManager voiceStateCacheManager) {
         this.client = client;
         this.dbManager = dbManager;
+        this.config = config;
 
-        this.hubChannelId = config.getHubChannelId();
-        this.temporaryChannelCategoryId = config.getTempChannelCategoryId();
-        this.temporaryChannelNamePrefix = config.getTempChannelNamePrefix() != null ? config.getTempChannelNamePrefix() : "Sala de ";
         this.voiceStateCacheManager = voiceStateCacheManager;
 
-        if (this.hubChannelId == null || this.hubChannelId.isEmpty()) {
-            LOGGER.warn("ID do Hub Channel para canais temporários não configurado. Funcionalidade desabilitada.");
-        }
     }
 
     @Override
@@ -54,77 +47,119 @@ public class TemporaryChannelListener implements EventListener {
     }
 
     private void handleVoiceStateUpdate(VoiceStateUpdateEvent event) {
-        if (hubChannelId == null || hubChannelId.isEmpty()) return;
-
-        String userId = event.getUserId();
-        String newChannelId = event.getChannelId();
         String guildId = event.getGuildId();
+        if (guildId == null) return; // Ignorar DMs de voz
 
-        if (guildId == null) return;
+        dbManager.getGuildConfig(guildId)
+                .thenAccept(configOpt -> {
+                    GuildConfig guildConfig = configOpt.orElse(new GuildConfig(guildId));
 
-        dbManager.getTemporaryChannelByOwner(guildId, userId)
-                .thenAccept(existingUserChannelOpt -> {
-                    boolean joinedHubChannel = hubChannelId.equals(newChannelId);
-                    LOGGER.debug("Usuário {} entrou no Hub Channel ({} == {})? {}. Canal temporário existente no DB? {}",
-                            userId, hubChannelId, newChannelId, joinedHubChannel, existingUserChannelOpt.isPresent());
+                    String hubChannelId = guildConfig.tempHubChannelId; // Pega da config da guild
+                    String tempChannelCategoryId = guildConfig.tempChannelCategoryId; // Pega da config
+                    String tempChannelNamePrefix = guildConfig.tempChannelNamePrefix; // Pega da config
+                    // Outros padrões como userLimit, defaultLock também devem vir de guildConfig.
 
-                    if (joinedHubChannel && existingUserChannelOpt.isEmpty()) {
-                        LOGGER.info("CONDIÇÃO DE CRIAÇÃO ATENDIDA para User ID: {}", userId);
-                        createTemporaryChannelForUser(event, guildId, userId);
-                    } else if (joinedHubChannel) {
-                        LOGGER.info("Usuário {} entrou no Hub Channel, mas já possui um canal temporário ativo: {}. Nenhuma ação de criação.",
-                                userId, existingUserChannelOpt.get().channelId);
-                    } else {
-                        LOGGER.debug("Condição de criação NÃO atendida. JoinedHub: {}, HasExistingChannel: {}",
-                                false, existingUserChannelOpt.isPresent());
+                    if (hubChannelId == null || hubChannelId.isEmpty()) {
+                        LOGGER.debug("Hub Channel ID não configurado para guild {}. Funcionalidade de canais temporários desabilitada.", guildId);
+                        return;
                     }
 
-                    if (existingUserChannelOpt.isPresent()) {
-                        String ownedTempChannelId = existingUserChannelOpt.get().channelId;
-                        if (!ownedTempChannelId.equals(newChannelId)) {
-                            LOGGER.info("Usuário {} saiu/mudou do seu canal temporário {}. Verificando para deleção.", userId, ownedTempChannelId);
-                            checkAndDeleteChannelIfEmpty(guildId, ownedTempChannelId);
-                        } else {
-                            LOGGER.debug("Usuário {} ainda está no seu canal temporário {} ou newChannelId é igual (nenhuma mudança relevante para deleção).", userId, ownedTempChannelId);
-                        }
-                    } else {
-                        LOGGER.debug("Usuário {} não tinha um canal temporário registrado para verificar deleção.", userId);
-                    }
+                    String userId = event.getUserId();
+                    String newChannelId = event.getChannelId();
+
+                    dbManager.getTemporaryChannelByOwner(guildId, userId)
+                            .thenAccept(existingUserChannelOpt -> {
+                                boolean joinedHubChannel = hubChannelId.equals(newChannelId);
+                                LOGGER.debug("Usuário {} entrou no Hub Channel ({} == {})? {}. Canal temporário existente no DB? {}",
+                                        userId, hubChannelId, newChannelId, joinedHubChannel, existingUserChannelOpt.isPresent());
+
+                                if (joinedHubChannel && existingUserChannelOpt.isEmpty()) {
+                                    LOGGER.info("CONDIÇÃO DE CRIAÇÃO ATENDIDA para User ID: {}", userId);
+                                    // Passar as configs da guild para o método de criação
+                                    createTemporaryChannelForUser(event, guildId, userId, guildConfig);
+                                } else if (joinedHubChannel && existingUserChannelOpt.isPresent()) {
+                                    LOGGER.info("Usuário {} entrou no Hub Channel, mas já possui um canal temporário ativo: {}. Nenhuma ação de criação.",
+                                            userId, existingUserChannelOpt.get().channelId);
+                                } else {
+                                    LOGGER.debug("Condição de criação NÃO atendida. JoinedHub: {}, HasExistingChannel: {}",
+                                            joinedHubChannel, existingUserChannelOpt.isPresent());
+                                }
+
+                                // Lógica de Deleção:
+                                if (existingUserChannelOpt.isPresent()) {
+                                    String ownedTempChannelId = existingUserChannelOpt.get().channelId;
+                                    if (!ownedTempChannelId.equals(newChannelId)) {
+                                        LOGGER.info("Usuário {} saiu/mudou do seu canal temporário {}. Verificando para deleção.", userId, ownedTempChannelId);
+                                        checkAndDeleteChannelIfEmpty(guildId, ownedTempChannelId, userId);
+                                    } else {
+                                        LOGGER.debug("Usuário {} ainda está no seu canal temporário {} ou newChannelId é igual (nenhuma mudança relevante para deleção).", userId, ownedTempChannelId);
+                                    }
+                                } else {
+                                    LOGGER.debug("Usuário {} não tinha um canal temporário registrado para verificar deleção.", userId);
+                                }
+                            })
+                            .exceptionally(ex -> {
+                                LOGGER.error("Erro ao buscar canal temporário existente para usuário {}:", userId, ex);
+                                return null;
+                            });
                 })
                 .exceptionally(ex -> {
-                    LOGGER.error("Erro ao buscar canal temporário existente para usuário {}:", userId, ex);
+                    LOGGER.error("Erro ao buscar configurações da guild {} para VoiceStateUpdateEvent:", guildId, ex);
                     return null;
                 });
     }
 
-    private void createTemporaryChannelForUser(VoiceStateUpdateEvent event, String guildId, String userId) {
+    // Mude a assinatura para aceitar GuildConfig
+    private void createTemporaryChannelForUser(VoiceStateUpdateEvent event, String guildId, String userId, GuildConfig guildConfig) {
         event.retrieveMember().thenAcceptAsync(member -> {
-            if (member == null || member.getUser() == null) {
-                LOGGER.warn("Não foi possível buscar o membro {} para criar canal temporário.", userId);
-                return;
-            }
+            if (member == null || member.getUser() == null) { /* ... */ return; }
 
             dbManager.getUserChannelPreference(guildId, userId)
                     .thenCompose(userPrefsOpt -> {
+                        // Preferências do usuário têm prioridade sobre as da guildConfig.
+                        // Usar null-coalescing: preference.orElse(guildConfig.or(ConfigManager.defaults))
                         UserChannelPreference prefs = userPrefsOpt.orElse(new UserChannelPreference(guildId, userId));
+                        // Aplicar padrões da guildConfig se a preferência do usuário for null
+                        Integer finalUserLimit = prefs.preferredUserLimit != null ? prefs.preferredUserLimit : guildConfig.defaultTempChannelUserLimit;
+                        String finalNamePrefix = prefs.preferredName != null && !prefs.preferredName.isEmpty() ? prefs.preferredName : guildConfig.tempChannelNamePrefix;
+                        Integer finalDefaultLocked = prefs.defaultLocked != null ? prefs.defaultLocked : guildConfig.defaultTempChannelLock;
 
-                        String tempChannelName = getString(member);
+                        // Usar o prefixo da guildConfig ou o padrão do ConfigManager se não houver na guildConfig
+                        if (finalNamePrefix == null || finalNamePrefix.isEmpty()) {
+                            finalNamePrefix = config.getTempChannelNamePrefix(); // Padrão do ConfigManager
+                        }
+                        if (finalUserLimit == null) {
+                            finalUserLimit = config.getTempChannelDefaultLock(); // Padrão do ConfigManager
+                        }
+                        if (finalDefaultLocked == null) {
+                            finalDefaultLocked = config.getTempChannelDefaultLock(); // Padrão do ConfigManager
+                        }
+
+
+                        String tempChannelName;
+                        if (finalNamePrefix != null && !finalNamePrefix.isEmpty()) {
+                            tempChannelName = finalNamePrefix.replace("%username%", member.getEffectiveName());
+                        } else {
+                            tempChannelName = "Sala de " + member.getEffectiveName(); // Fallback final
+                        }
+                        if (tempChannelName.length() > 100) tempChannelName = tempChannelName.substring(0, 100);
 
                         LOGGER.info("Usuário {} ({}) entrou no Hub. Criando canal: {}", member.getEffectiveName(), userId, tempChannelName);
 
-                        CreateGuildChannelPayload channelPayload = getCreateGuildChannelPayload(tempChannelName, prefs);
+                        CreateGuildChannelPayload channelPayload = getCreateGuildChannelPayload(guildConfig, tempChannelName, finalUserLimit);
 
-
-                        return client.createGuildChannel(guildId, tempChannelName, ChannelType.GUILD_VOICE, channelPayload.getParentId())
+                        String finalTempChannelName = tempChannelName; // Capturar para o lambda
+                        Integer finalDefaultLockedVal = finalDefaultLocked; // Capturar para o lambda
+                        return client.createGuildChannel(guildId, channelPayload.getName(), ChannelType.GUILD_VOICE, channelPayload.getParentId())
                                 .thenCompose(createdChannel -> {
                                     LOGGER.info("Canal temporário {} (ID: {}) criado. Aplicando configurações e movendo membro...",
-                                            tempChannelName, createdChannel.getId());
+                                            finalTempChannelName, createdChannel.getId());
                                     return dbManager.addTemporaryChannel(createdChannel.getId(), guildId, userId)
                                             .thenApply(v -> createdChannel);
                                 })
-                                .thenCompose(createdChannel -> {
-                                    CompletableFuture<Void> permissionsFuture;
-                                    if (prefs.defaultLocked == 1) {
+                                .thenCompose(createdChannel -> { // Apply lock status
+                                    CompletableFuture<Void> permissionsFuture = CompletableFuture.completedFuture(null);
+                                    if (finalDefaultLockedVal == 1) { // Usar o valor booleano diretamente
                                         LOGGER.info("Canal {} será criado como trancado por preferência do usuário.", createdChannel.getId());
 
                                         CompletableFuture<Void> lockEveryone = client.editChannelPermissions(
@@ -137,7 +172,7 @@ public class TemporaryChannelListener implements EventListener {
                                         );
                                         permissionsFuture = CompletableFuture.allOf(lockEveryone, allowOwner);
                                     } else {
-
+                                        // Garantir que @everyone possa conectar se não for trancado por padrão
                                         permissionsFuture = client.editChannelPermissions(
                                                 createdChannel.getId(), guildId, TargetType.ROLE,
                                                 EnumSet.of(Permission.CONNECT, Permission.VIEW_CHANNEL, Permission.SPEAK), EnumSet.noneOf(Permission.class)
@@ -145,13 +180,15 @@ public class TemporaryChannelListener implements EventListener {
                                     }
                                     return permissionsFuture.thenApply(v -> createdChannel);
                                 })
-                                .thenCompose(createdChannel -> {
+                                .thenCompose(createdChannel -> { // Move member
                                     LOGGER.info("Movendo {} para o canal temporário {}", member.getEffectiveName(), createdChannel.getName());
                                     return client.modifyGuildMemberVoiceChannel(guildId, userId, createdChannel.getId())
                                             .thenApply(v -> createdChannel);
                                 });
                     })
-                    .thenAccept(finalChannel -> LOGGER.info("Usuário {} movido para seu canal temporário {}.", member.getEffectiveName(), finalChannel.getName()))
+                    .thenAccept(finalChannel -> {
+                        LOGGER.info("Usuário {} movido para seu canal temporário {}.", member.getEffectiveName(), finalChannel.getName());
+                    })
                     .exceptionally(ex -> {
                         LOGGER.error("Falha durante a criação/configuração/movimentação do canal temporário para {}:", member.getEffectiveName(), ex);
                         return null;
@@ -162,27 +199,18 @@ public class TemporaryChannelListener implements EventListener {
         });
     }
 
-    private @NotNull CreateGuildChannelPayload getCreateGuildChannelPayload(String tempChannelName, UserChannelPreference prefs) {
+    private static @NotNull CreateGuildChannelPayload getCreateGuildChannelPayload(GuildConfig guildConfig, String tempChannelName, Integer finalUserLimit) {
         CreateGuildChannelPayload channelPayload = new CreateGuildChannelPayload(tempChannelName, ChannelType.GUILD_VOICE);
-        if (temporaryChannelCategoryId != null && !temporaryChannelCategoryId.isEmpty()) {
-            channelPayload.setParentId(temporaryChannelCategoryId);
+        if (guildConfig.tempChannelCategoryId != null && !guildConfig.tempChannelCategoryId.isEmpty()) {
+            channelPayload.setParentId(guildConfig.tempChannelCategoryId);
         }
-        if (prefs.preferredUserLimit != null) {
-            channelPayload.setUserLimit(prefs.preferredUserLimit);
-        }
+        // Aplicar o limite de usuário
+        channelPayload.setUserLimit(finalUserLimit == 0 ? null : finalUserLimit);
         return channelPayload;
     }
 
-    private @NotNull String getString(Member member) {
-        String tempChannelName;
 
-        tempChannelName = (this.temporaryChannelNamePrefix != null ? this.temporaryChannelNamePrefix : "Sala de ") + member.getEffectiveName();
-
-        if (tempChannelName.length() > 100) tempChannelName = tempChannelName.substring(0, 100);
-        return tempChannelName;
-    }
-
-    private void checkAndDeleteChannelIfEmpty(String guildId, String channelId) {
+    private void checkAndDeleteChannelIfEmpty(String guildId, String channelId, String userId) {
         dbManager.getTemporaryChannel(channelId)
                 .thenAccept(tempChannelOpt -> {
                     if (tempChannelOpt.isEmpty()) {
