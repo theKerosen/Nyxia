@@ -24,7 +24,14 @@ public class TimedAudioMixer implements AutoCloseable {
     private final ConcurrentLinkedQueue<AudioPacket> audioQueue = new ConcurrentLinkedQueue<>();
     private final byte[] silenceFrame = new byte[FRAME_SIZE_BYTES];
 
-    private record AudioPacket(User user, byte[] pcmData) {
+    private static class AudioPacket {
+        final User user;
+        final byte[] pcmData;
+
+        AudioPacket(User user, byte[] pcmData) {
+            this.user = user;
+            this.pcmData = pcmData;
+        }
     }
 
     public TimedAudioMixer(File outputFile) throws IOException {

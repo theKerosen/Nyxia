@@ -7,6 +7,9 @@ import org.jetbrains.annotations.Nullable;
 
 public class VoiceStateUpdatePayload {
 
+    @JsonProperty("guild_id")
+    private final String guildId;
+
     @JsonProperty("channel_id")
     @JsonInclude(JsonInclude.Include.ALWAYS)
     private final String channelId;
@@ -18,6 +21,7 @@ public class VoiceStateUpdatePayload {
     private final boolean selfDeaf;
 
     public VoiceStateUpdatePayload(String guildId, @Nullable String channelId, boolean selfMute, boolean selfDeaf) {
+        this.guildId = guildId;
         this.channelId = channelId;
         this.selfMute = selfMute;
         this.selfDeaf = selfDeaf;

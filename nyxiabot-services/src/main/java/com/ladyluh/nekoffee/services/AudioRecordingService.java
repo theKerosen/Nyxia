@@ -19,16 +19,21 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class AudioRecordingService {
     private static final Logger LOGGER = LoggerFactory.getLogger(AudioRecordingService.class);
     private final NekoffeeClient client;
     private final JsonEngine jsonEngine;
     private final ConcurrentHashMap<String, RecordingSession> activeSessions = new ConcurrentHashMap<>();
+    // Use 95% of 8MB as the target size to be safe
     private static final long TARGET_FRAGMENT_SIZE = (long) (8 * 1024 * 1024 * 0.95);
 
     public AudioRecordingService(NekoffeeClient client, JsonEngine jsonEngine) {
