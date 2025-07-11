@@ -49,13 +49,13 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.7</version> <!-- Use a versão mais recente estável -->
+            <version>2.0.7</version> 
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.4.8</version> <!-- Use a versão mais recente estável -->
-            <scope>runtime</scope> <!-- Ou compile, dependendo de como você quer que os usuários configurem -->
+            <version>1.4.8</version> 
+            <scope>runtime</scope> 
         </dependency>
         <dependency>
             <groupId>com.ladyluh.nekoffee</groupId>
@@ -67,6 +67,12 @@
             <groupId>com.ladyluh.nekoffee</groupId>
             <artifactId>nekoffee-builder-util</artifactId>
             <version>${project.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.ladyluh.nekoffee</groupId>
+            <artifactId>nekoffee-voice</artifactId>
+            <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>

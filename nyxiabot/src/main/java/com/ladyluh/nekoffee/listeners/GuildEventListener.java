@@ -23,7 +23,7 @@ public class GuildEventListener implements EventListener {
     private final NekoffeeClient client;
     private final DatabaseManager dbManager;
 
-    public GuildEventListener(ConfigManager config, NekoffeeClient client, DatabaseManager dbManager) {
+    public GuildEventListener(NekoffeeClient client, DatabaseManager dbManager) {
         this.client = client;
         this.dbManager = dbManager;
 
@@ -36,7 +36,6 @@ public class GuildEventListener implements EventListener {
         } else if (event instanceof GuildMemberAddEvent gmaEvent) {
             handleGuildMemberAdd(gmaEvent);
         }
-
     }
 
     private void handleReady(ReadyEvent event) {
@@ -55,10 +54,10 @@ public class GuildEventListener implements EventListener {
             return;
         }
 
-        // Buscar a configuração da guild
+
         dbManager.getGuildConfig(guildId)
                 .thenAccept(configOpt -> {
-                    // Usar orElse para obter a configuração ou um objeto com nulls
+
                     GuildConfig guildConfig = configOpt.orElse(new GuildConfig(guildId));
 
                     String autoAssignRoleId = guildConfig.autoAssignRoleId;

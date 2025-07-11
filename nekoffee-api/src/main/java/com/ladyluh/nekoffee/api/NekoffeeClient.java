@@ -6,8 +6,11 @@ import com.ladyluh.nekoffee.api.entities.channel.ChannelType;
 import com.ladyluh.nekoffee.api.event.EventListener;
 import com.ladyluh.nekoffee.api.gateway.GatewayIntent;
 import com.ladyluh.nekoffee.api.payload.channel.ChannelModifyPayload;
+import com.ladyluh.nekoffee.api.payload.channel.CreateGuildChannelPayload;
 import com.ladyluh.nekoffee.api.payload.permission.Permission;
 import com.ladyluh.nekoffee.api.payload.send.MessageSendPayload;
+import com.ladyluh.nekoffee.api.voice.VoiceConnection;
+import okhttp3.MultipartBody;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
@@ -18,150 +21,137 @@ public interface NekoffeeClient {
 
     User getSelfUser();
 
-    /**
-     * Inicia a conexão com o Discord e autentica o bot.
-     * Este método deve ser chamado antes de qualquer outra interação com o Discord.
-     *
-     * @param token O token do bot.
-     * @return Um CompletableFuture que é completado quando o login (e conexão com o gateway, futuramente) é bem-sucedido.
-     */
     CompletableFuture<Void> login(String token, Collection<GatewayIntent> intents);
 
-    /**
-     * Desconecta o bot do Discord.
-     */
     void shutdown();
 
-    /**
-     * Envia uma mensagem para um canal específico.
-     *
-     * @param channelId O ID do canal.
-     * @param content   O conteúdo da mensagem.
-     * @return Um CompletableFuture contendo a Mensagem enviada, se bem-sucedido.
-     */
     CompletableFuture<Message> sendMessage(String channelId, String content);
 
-    /**
-     * Registra um ouvinte de eventos.
-     *
-     * @param listener O ouvinte a ser registrado.
-     */
     void addEventListener(EventListener listener);
 
-    /**
-     * Remove um ouvinte de eventos registrado.
-     *
-     * @param listener O ouvinte a ser removido.
-     */
     void removeEventListener(EventListener listener);
 
-    /**
-     * Busca um usuário pelo seu ID.
-     *
-     * @param userId O ID do usuário.
-     * @return Um CompletableFuture contendo o objeto User, se encontrado.
-     */
     CompletableFuture<User> getUserById(String userId);
 
-    /**
-     * Busca um canal pelo seu ID.
-     *
-     * @param channelId O ID do canal.
-     * @return Um CompletableFuture contendo o objeto Channel, se encontrado.
-     * O tipo específico do canal (TextChannel, VoiceChannel, etc.) precisará ser
-     * verificado e possivelmente "castado" pelo chamador.
-     */
     CompletableFuture<Channel> getChannelById(String channelId);
 
-    /**
-     * Busca um servidor (Guild) pelo seu ID.
-     *
-     * @param guildId O ID do servidor.
-     * @return Um CompletableFuture contendo o objeto Guild, se encontrado.
-     */
     CompletableFuture<Guild> getGuildById(String guildId);
 
     CompletableFuture<List<Role>> getGuildRoles(String guildId);
 
-    /**
-     * Busca um membro específico de um servidor pelo ID do servidor e ID do usuário.
-     *
-     * @param guildId O ID do servidor.
-     * @param userId  O ID do usuário (que também é o ID do membro).
-     * @return Um CompletableFuture contendo o objeto Member, se encontrado.
-     */
     CompletableFuture<Member> getGuildMember(String guildId, String userId);
 
-    /**
-     * Adiciona um cargo a um membro específico em um servidor.
-     * Requer a permissão MANAGE_ROLES.
-     *
-     * @param guildId O ID do servidor.
-     * @param userId  O ID do usuário (membro).
-     * @param roleId  O ID do cargo a ser adicionado.
-     * @return Um CompletableFuture que é completado quando a operação é bem-sucedida, ou com uma exceção em caso de falha.
-     */
     CompletableFuture<Void> addRoleToMember(String guildId, String userId, String roleId);
 
-    /**
-     * Remove um cargo de um membro específico em um servidor.
-     * Requer a permissão MANAGE_ROLES.
-     *
-     * @param guildId O ID do servidor.
-     * @param userId  O ID do usuário (membro).
-     * @param roleId  O ID do cargo a ser removido.
-     * @return Um CompletableFuture que é completado quando a operação é bem-sucedida, ou com uma exceção em caso de falha.
-     */
     CompletableFuture<Void> removeRoleFromMember(String guildId, String userId, String roleId);
 
     CompletableFuture<Message> sendMessage(String channelId, MessageSendPayload messageData);
 
-    /**
-     * Cria um novo canal em um servidor.
-     * Requer a permissão MANAGE_CHANNELS.
-     *
-     * @param guildId          O ID do servidor.
-     * @param name             O nome do novo canal.
-     * @param type             O tipo do canal a ser criado (ex: GUILD_VOICE, GUILD_TEXT).
-     * @param parentCategoryId (Opcional) O ID da categoria onde o canal será criado. Pode ser null.
-     * @return Um CompletableFuture contendo o objeto Channel criado.
-     */
+    CompletableFuture<Channel> createGuildChannel(String guildId, CreateGuildChannelPayload payload);
+
     CompletableFuture<Channel> createGuildChannel(String guildId, String name, ChannelType type, @Nullable String parentCategoryId);
 
-    /**
-     * Deleta um canal.
-     * Requer a permissão MANAGE_CHANNELS no canal pai (para canais de guild) ou no próprio canal.
-     *
-     * @param channelId O ID do canal a ser deletado.
-     * @return Um CompletableFuture que é completado quando a operação é bem-sucedida, ou com uma exceção.
-     * Pode retornar o objeto Channel deletado em algumas implementações de API, ou Void. Vamos retornar Channel.
-     */
     CompletableFuture<Channel> deleteChannel(String channelId);
 
-    /**
-     * Modifica um membro da guild, usado aqui para mover entre canais de voz.
-     * Requer a permissão MOVE_MEMBERS.
-     *
-     * @param guildId        O ID do servidor.
-     * @param userId         O ID do usuário/membro.
-     * @param voiceChannelId O ID do canal de voz para onde mover o membro. Passe null para desconectar.
-     * @return Um CompletableFuture que completa quando a operação é bem-sucedida.
-     */
     CompletableFuture<Void> modifyGuildMemberVoiceChannel(String guildId, String userId, @Nullable String voiceChannelId);
 
-    /**
-     * Modifica as configurações de um canal existente.
-     * Requer permissões apropriadas (ex: MANAGE_CHANNELS).
-     *
-     * @param channelId O ID do canal a ser modificado.
-     * @param payload   O payload contendo as alterações.
-     * @return Um CompletableFuture contendo o objeto Channel atualizado.
-     */
     CompletableFuture<Channel> modifyChannel(String channelId, ChannelModifyPayload payload);
 
     CompletableFuture<Void> editChannelPermissions(String channelId, String targetId, TargetType type, Collection<Permission> allow, Collection<Permission> deny);
 
+    CompletableFuture<Void> editChannelPermissions(String channelId, String targetId, TargetType type, long allowBitmask, long denyBitmask);
 
-    CompletableFuture<Void> editChannelPermissions(String channelId, String targetId, TargetType type,
-                                                   long allowBitmask, long denyBitmask);
+    /**
+     * Sends a message with a multipart body, typically used for file uploads.
+     *
+     * @param channelId The ID of the channel to send the message to.
+     * @param body      The MultipartBody containing the message data and files.
+     * @return A CompletableFuture containing the sent Message.
+     */
+    CompletableFuture<Message> sendMessage(String channelId, MultipartBody body);
+
+    /**
+     * Attempts to join a voice channel.
+     *
+     * @param guildId   The ID of the guild where the voice channel is located.
+     * @param channelId The ID of the voice channel to join.
+     * @return A CompletableFuture that completes with the VoiceConnection when established.
+     * It will complete exceptionally if the client is not logged in or an error occurs during connection.
+     */
+    CompletableFuture<VoiceConnection> joinVoiceChannel(String guildId, String channelId);
+
+    /**
+     * Attempts to leave a voice channel in a specific guild.
+     *
+     * @param guildId The ID of the guild from which to leave the voice channel.
+     */
+    CompletableFuture<Void> leaveVoiceChannel(String guildId);
+
+    /**
+     * FIX: Overload setActivity to support all activity types, including streaming with a URL.
+     *
+     * @param type The type of activity (Playing, Streaming, etc.).
+     * @param name The text to display for the activity.
+     * @param url  The URL for streaming status (required if type is STREAMING, otherwise ignored).
+     */
+    void setActivity(ActivityType type, String name, @Nullable String url);
+
+    default void setActivity(ActivityType type, String name) {
+        if (type == ActivityType.STREAMING) {
+            throw new IllegalArgumentException("STREAMING activity type requires a URL. Use the setActivity(type, name, url) method.");
+        }
+        setActivity(type, name, null);
+    }
+
+
+    /**
+     * FIX: Add an ActivityType enum to make setting statuses type-safe.
+     * Corresponds to Discord's activity type integers.
+     */
+    enum ActivityType {
+        PLAYING(0),
+        STREAMING(1),
+        LISTENING(2),
+        WATCHING(3),
+        CUSTOM(4),
+        COMPETING(5);
+
+        private final int value;
+
+        ActivityType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
+
+    /**
+     * Interface for handling audio data received from a voice channel.
+     * Implementations of this are given to a VoiceConnection.
+     */
+    interface AudioReceiveHandler {
+        /**
+         * Checks if audio from a specific user should be processed.
+         *
+         * @param user The User whose audio is about to be received.
+         * @return true if the audio should be processed, false to discard.
+         */
+        boolean canReceiveUser(User user);
+
+        /**
+         * Handles a 20ms packet of decoded PCM, stereo, 48kHz audio from a specific user.
+         *
+         * @param user    The User who spoke. This is always non-null.
+         * @param pcmData The raw PCM audio data.
+         */
+        void handleUserAudio(User user, byte[] pcmData);
+
+        /**
+         * Called when the voice connection is terminated and the handler is shut down.
+         */
+        void onShutdown();
+    }
+
 }

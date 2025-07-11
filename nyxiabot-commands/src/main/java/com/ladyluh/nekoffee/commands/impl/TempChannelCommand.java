@@ -28,7 +28,7 @@ public class TempChannelCommand implements Command {
 
     @Override
     public List<String> getAliases() {
-        return List.of("minhasala");
+        return List.of("minhasala", "vc");
     }
 
     @Override
@@ -38,7 +38,7 @@ public class TempChannelCommand implements Command {
 
     @Override
     public String getUsage() {
-        return "sala <limite/nome/trancar/destrancar/permitir/proibir> [args]";
+        return "sala <limite/nome/trancar/destrancar/permitir/proibir/autoownage> [args]";
     }
 
     @Override
@@ -69,6 +69,9 @@ public class TempChannelCommand implements Command {
                     if ("limite".equals(subCommand) || "nome".equals(subCommand)) {
                         return handlePreferenceCommand(ctx, userTempChannelOpt, userPrefsOpt, subCommand);
                     }
+                    if ("autoownage".equals(subCommand) || "ao".equals(subCommand)) {
+                        return handleAutoOwnerCommand(ctx, userPrefsOpt);
+                    }
 
 
                     if (userTempChannelOpt.isEmpty()) {
@@ -82,8 +85,23 @@ public class TempChannelCommand implements Command {
                                 handleLockUnlockCommand(ctx, tempChannelId, subCommand, userPrefsOpt);
                         case "permitir", "proibir" -> handlePermissionCommand(ctx, tempChannelId, subCommand);
                         default ->
-                                ctx.reply("Subcomando de sala desconhecido. Use: `limite`, `nome`, `trancar`, `destrancar`, `permitir`, `proibir`.");
+                                ctx.reply("Subcomando de sala desconhecido. Use: `limite`, `nome`, `trancar`, `destrancar`, `permitir`, `proibir`, `autoownage`.");
                     };
+                });
+    }
+
+    private CompletableFuture<Void> handleAutoOwnerCommand(CommandContext ctx, Optional<UserChannelPreference> userPrefsOpt) {
+        String guildId = ctx.getGuildId();
+        String authorId = ctx.getAuthor().getId();
+        UserChannelPreference prefs = userPrefsOpt.orElse(new UserChannelPreference(guildId, authorId));
+
+        int newStatus = (prefs.autoOwnerSwitching == null || prefs.autoOwnerSwitching == 0) ? 1 : 0;
+        prefs.autoOwnerSwitching = newStatus;
+
+        return dbManager.updateUserChannelPreference(guildId, authorId, prefs.preferredUserLimit, prefs.preferredName, prefs.defaultLocked, prefs.autoOwnerSwitching)
+                .thenCompose(v -> {
+                    String statusMessage = newStatus == 1 ? "ATIVADA" : "DESATIVADA";
+                    return ctx.reply("✅ A transferência automática de posse de sala foi **" + statusMessage + "** para seus futuros canais.");
                 });
     }
 
@@ -104,26 +122,24 @@ public class TempChannelCommand implements Command {
                     }
 
                     prefs.preferredUserLimit = (limit);
-                    return dbManager.updateUserChannelPreference(guildId, authorId, prefs.preferredUserLimit, prefs.preferredName, prefs.defaultLocked)
-                            .thenCompose(v -> ctx.reply("Preferência de limite para seus futuros canais definida para " + (limit == 0 ? "ilimitado" : limit) + "."))
-                            .thenCompose(v -> {
-                                if (userTempChannelOpt.isPresent()) {
-                                    String activeChannelId = userTempChannelOpt.get().channelId;
-                                    ChannelModifyPayload payload = new ChannelModifyPayload();
-                                    payload.setUserLimit(limit == 0 ? null : limit);
-                                    return ctx.getClient().modifyChannel(activeChannelId, payload)
-                                            .thenCompose(updatedChannel -> ctx.reply("Limite do seu canal ativo <#" + activeChannelId + "> também foi atualizado."))
-                                            .thenApply(x -> null);
-                                }
-                                return CompletableFuture.completedFuture(null);
-                            });
+                    CompletableFuture<Void> dbUpdate = dbManager.updateUserChannelPreference(guildId, authorId, prefs.preferredUserLimit, prefs.preferredName, prefs.defaultLocked, prefs.autoOwnerSwitching)
+                            .thenCompose(v -> ctx.reply("Preferência de limite para seus futuros canais definida para " + (limit == 0 ? "ilimitado" : limit) + "."));
+
+                    if (userTempChannelOpt.isPresent()) {
+                        String activeChannelId = userTempChannelOpt.get().channelId;
+                        ChannelModifyPayload payload = new ChannelModifyPayload();
+                        payload.setUserLimit(limit == 0 ? null : limit);
+                        return dbUpdate.thenCompose(v -> ctx.getClient().modifyChannel(activeChannelId, payload))
+                                .thenCompose(updatedChannel -> ctx.reply("Limite do seu canal ativo <#" + activeChannelId + "> também foi atualizado."));
+                    }
+                    return dbUpdate;
                 } catch (NumberFormatException e) {
                     return ctx.reply("Por favor, forneça um número válido para o limite.");
                 }
 
             case "nome":
                 if (ctx.getArgs().size() < 2) {
-                    return ctx.reply("Uso: `!sala nome <template>` (Use %nome% para seu nome)");
+                    return ctx.reply("Uso: `!sala nome <template>` (Use %username% para seu nome)");
                 }
                 String nameTemplate = String.join(" ", ctx.getArgs().subList(1, ctx.getArgs().size())).trim();
                 if (nameTemplate.isEmpty() || nameTemplate.length() > 80) {
@@ -131,22 +147,20 @@ public class TempChannelCommand implements Command {
                 }
 
                 prefs.preferredName = nameTemplate;
-                return dbManager.updateUserChannelPreference(guildId, authorId, prefs.preferredUserLimit, prefs.preferredName, prefs.defaultLocked)
-                        .thenCompose(v -> ctx.reply("Template de nome para seus futuros canais temporários definido para: '" + nameTemplate + "'."))
-                        .thenCompose(v -> {
-                            if (userTempChannelOpt.isPresent()) {
-                                String activeChannelId = userTempChannelOpt.get().channelId;
-                                String finalName = formatChannelName(nameTemplate, ctx.getAuthor().getGlobalName());
-                                if (finalName.length() > 100) finalName = finalName.substring(0, 100);
+                CompletableFuture<Void> dbNameUpdate = dbManager.updateUserChannelPreference(guildId, authorId, prefs.preferredUserLimit, prefs.preferredName, prefs.defaultLocked, prefs.autoOwnerSwitching)
+                        .thenCompose(v -> ctx.reply("Template de nome para seus futuros canais temporários definido para: '" + nameTemplate + "'."));
 
-                                ChannelModifyPayload namePayload = new ChannelModifyPayload();
-                                namePayload.setName(finalName);
-                                return ctx.getClient().modifyChannel(activeChannelId, namePayload)
-                                        .thenCompose(x -> ctx.reply("Nome do seu canal ativo <#" + activeChannelId + "> também foi atualizado."))
-                                        .thenApply(x -> null);
-                            }
-                            return CompletableFuture.completedFuture(null);
-                        });
+                if (userTempChannelOpt.isPresent()) {
+                    String activeChannelId = userTempChannelOpt.get().channelId;
+                    String finalName = nameTemplate.replace("%username%", ctx.getAuthor().getGlobalName());
+                    if (finalName.length() > 100) finalName = finalName.substring(0, 100);
+
+                    ChannelModifyPayload namePayload = new ChannelModifyPayload();
+                    namePayload.setName(finalName);
+                    return dbNameUpdate.thenCompose(v -> ctx.getClient().modifyChannel(activeChannelId, namePayload))
+                            .thenCompose(x -> ctx.reply("Nome do seu canal ativo <#" + activeChannelId + "> também foi atualizado."));
+                }
+                return dbNameUpdate;
             default:
                 return ctx.reply("Subcomando de preferência desconhecido.");
         }
@@ -162,7 +176,8 @@ public class TempChannelCommand implements Command {
 
 
         UserChannelPreference prefs = userPrefsOpt.orElse(new UserChannelPreference(guildId, authorId));
-        CompletableFuture<Void> updatePrefsFuture = dbManager.updateUserChannelPreference(guildId, authorId, prefs.preferredUserLimit, prefs.preferredName, prefs.defaultLocked);
+        prefs.defaultLocked = lock ? 1 : 0;
+        CompletableFuture<Void> updatePrefsFuture = dbManager.updateUserChannelPreference(guildId, authorId, prefs.preferredUserLimit, prefs.preferredName, prefs.defaultLocked, prefs.autoOwnerSwitching);
 
         CompletableFuture<Void> modifyEveryonePerms = ctx.getClient().editChannelPermissions(
                 tempChannelId, guildId, TargetType.ROLE,
@@ -171,13 +186,12 @@ public class TempChannelCommand implements Command {
 
         CompletableFuture<Void> allowOwner = ctx.getClient().editChannelPermissions(
                 tempChannelId, authorId, TargetType.MEMBER,
-                EnumSet.of(Permission.CONNECT, Permission.SPEAK),
+                EnumSet.of(Permission.CONNECT, Permission.SPEAK, Permission.VIEW_CHANNEL),
                 EnumSet.noneOf(Permission.class)
         );
 
         return CompletableFuture.allOf(updatePrefsFuture, modifyEveryonePerms, allowOwner)
-                .thenCompose(v -> ctx.reply("Canal <#" + tempChannelId + "> " + (lock ? "trancado" : "destrancado") + " com sucesso!"))
-                .thenApply(x -> null);
+                .thenCompose(v -> ctx.reply("Canal <#" + tempChannelId + "> " + (lock ? "trancado" : "destrancado") + " com sucesso!"));
     }
 
     private CompletableFuture<Void> handlePermissionCommand(CommandContext ctx, String tempChannelId, String subCommand) {
@@ -223,14 +237,6 @@ public class TempChannelCommand implements Command {
                         allowPerms,
                         denyPerms
                 )
-                .thenCompose(v -> ctx.reply(mention + " agora tem o acesso " + actionVerb + " ao canal <#" + tempChannelId + ">."))
-                .thenApply(x -> null);
-    }
-
-    private String formatChannelName(String template, String username) {
-        if (template == null || template.isEmpty()) {
-            return "Sala de " + username;
-        }
-        return template.replace("%nome%", username);
+                .thenCompose(v -> ctx.reply(mention + " agora tem o acesso " + actionVerb + " ao canal <#" + tempChannelId + ">."));
     }
 }

@@ -1,5 +1,6 @@
 package com.ladyluh.nekoffee.database;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,6 @@ public class DatabaseManager {
     private final ExecutorService dbExecutor;
 
     public DatabaseManager(String dbFileName) {
-
         File dataDir = new File("data");
         if (!dataDir.exists()) {
             if (dataDir.mkdirs()) {
@@ -30,12 +30,11 @@ public class DatabaseManager {
         }
         this.dbUrl = "jdbc:sqlite:data/" + dbFileName;
 
-
         this.dbExecutor = Executors.newFixedThreadPool(5, new ThreadFactory() {
             private int count = 0;
 
             @Override
-            public Thread newThread(Runnable r) {
+            public Thread newThread(@NotNull Runnable r) {
                 Thread thread = new Thread(r, "Nekoffee-DB-Pool-Thread-" + count++);
                 thread.setDaemon(true);
                 return thread;
@@ -76,21 +75,23 @@ public class DatabaseManager {
                     preferred_user_limit INTEGER,
                     preferred_name_template TEXT,
                     locked INTEGER DEFAULT 0,
+                    auto_owner_switching INTEGER DEFAULT 1,
                     PRIMARY KEY (guild_id, user_id)
                 );""";
 
         String createGuildConfigsTableSQL = """
-            CREATE TABLE IF NOT EXISTS guild_configs (
-                guild_id TEXT PRIMARY KEY,
-                log_channel_id TEXT,
-                welcome_channel_id TEXT,
-                auto_assign_role_id TEXT,
-                temp_hub_channel_id TEXT,
-                temp_channel_category_id TEXT,
-                temp_channel_name_prefix TEXT,
-                default_temp_channel_user_limit INTEGER,
-                default_temp_channel_lock INTEGER
-            );""";
+                CREATE TABLE IF NOT EXISTS guild_configs (
+                    guild_id TEXT PRIMARY KEY,
+                    log_channel_id TEXT,
+                    welcome_channel_id TEXT,
+                    auto_assign_role_id TEXT,
+                    recordings_channel_id TEXT,
+                    temp_hub_channel_id TEXT,
+                    temp_channel_category_id TEXT,
+                    temp_channel_name_prefix TEXT,
+                    default_temp_channel_user_limit INTEGER,
+                    default_temp_channel_lock INTEGER
+                );""";
 
         try (Connection conn = connect(); Statement stmt = conn.createStatement()) {
             stmt.execute(createUserXPTableSQL);
@@ -106,9 +107,78 @@ public class DatabaseManager {
         }
     }
 
+    public CompletableFuture<Optional<GuildConfig>> getGuildConfig(String guildId) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT * FROM guild_configs WHERE guild_id = ?";
+            try (Connection conn = connect();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, guildId);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return Optional.of(new GuildConfig(
+                            guildId,
+                            rs.getString("log_channel_id"),
+                            rs.getString("welcome_channel_id"),
+                            rs.getString("auto_assign_role_id"),
+                            rs.getString("recordings_channel_id"),
+                            rs.getString("temp_hub_channel_id"),
+                            rs.getString("temp_channel_category_id"),
+                            rs.getString("temp_channel_name_prefix"),
+                            rs.getObject("default_temp_channel_user_limit", Integer.class),
+                            rs.getObject("default_temp_channel_lock", Integer.class)
+                    ));
+                }
+            } catch (SQLException e) {
+                LOGGER.error("Erro ao buscar GuildConfig para guild {}:", guildId, e);
+                throw new RuntimeException("DB Error fetching guild config for guild " + guildId, e);
+            }
+            return Optional.empty();
+        }, dbExecutor);
+    }
+
+    public CompletableFuture<Void> updateGuildConfig(GuildConfig config) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = """
+                    INSERT OR REPLACE INTO guild_configs (
+                        guild_id, log_channel_id, welcome_channel_id, auto_assign_role_id,
+                        recordings_channel_id, temp_hub_channel_id, temp_channel_category_id, temp_channel_name_prefix,
+                        default_temp_channel_user_limit, default_temp_channel_lock
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""";
+            try (Connection conn = connect();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                int i = 1;
+                pstmt.setString(i++, config.guildId);
+                pstmt.setString(i++, config.logChannelId);
+                pstmt.setString(i++, config.welcomeChannelId);
+                pstmt.setString(i++, config.autoAssignRoleId);
+                pstmt.setString(i++, config.recordingsChannelId);
+                pstmt.setString(i++, config.tempHubChannelId);
+                pstmt.setString(i++, config.tempChannelCategoryId);
+                pstmt.setString(i++, config.tempChannelNamePrefix);
+
+                if (config.defaultTempChannelUserLimit != null) {
+                    pstmt.setInt(i++, config.defaultTempChannelUserLimit);
+                } else {
+                    pstmt.setNull(i++, Types.INTEGER);
+                }
+
+                if (config.defaultTempChannelLock != null) {
+                    pstmt.setInt(i++, config.defaultTempChannelLock);
+                } else {
+                    pstmt.setNull(i++, Types.INTEGER);
+                }
+
+                pstmt.executeUpdate();
+                LOGGER.info("Configuração da Guild {} atualizada/inserida no DB.", config.guildId);
+            } catch (SQLException e) {
+                LOGGER.error("Erro ao atualizar GuildConfig para guild {}:", config.guildId, e);
+                throw new RuntimeException("DB Error updating guild config for guild " + config.guildId, e);
+            }
+        }, dbExecutor);
+    }
+
 
     public CompletableFuture<UserXP> getUserXP(String guildId, String userId) {
-
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT guild_id, user_id, xp, level, last_message_timestamp FROM user_xp WHERE guild_id = ? AND user_id = ?";
             try (Connection conn = connect();
@@ -127,16 +197,13 @@ public class DatabaseManager {
                 }
             } catch (SQLException e) {
                 LOGGER.error("Erro ao buscar UserXP para guild {} user {}:", guildId, userId, e);
-
                 throw new RuntimeException("DB Error fetching XP for user " + userId, e);
             }
-
             return new UserXP(guildId, userId, 0, 0, 0);
         }, dbExecutor);
     }
 
     public CompletableFuture<Void> updateUserXP(String guildId, String userId, int newXp, int newLevel, long lastMessageTimestamp) {
-
         return CompletableFuture.runAsync(() -> {
             String sql = """
                     INSERT OR REPLACE INTO user_xp (guild_id, user_id, xp, level, last_message_timestamp)
@@ -181,7 +248,6 @@ public class DatabaseManager {
             return topUsers;
         }, dbExecutor);
     }
-
 
     public CompletableFuture<Void> addTemporaryChannel(String channelId, String guildId, String ownerUserId) {
         return CompletableFuture.runAsync(() -> {
@@ -251,6 +317,22 @@ public class DatabaseManager {
         }, dbExecutor);
     }
 
+    public CompletableFuture<Void> updateTemporaryChannelOwner(String channelId, String newOwnerId) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = "UPDATE temporary_channels SET owner_user_id = ? WHERE channel_id = ?";
+            try (Connection conn = connect();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, newOwnerId);
+                pstmt.setString(2, channelId);
+                pstmt.executeUpdate();
+                LOGGER.info("Dono do canal temporário {} atualizado para {} no DB.", channelId, newOwnerId);
+            } catch (SQLException e) {
+                LOGGER.error("Erro ao atualizar dono do canal temporário {} no DB:", channelId, e);
+                throw new RuntimeException("DB Error updating temporary channel owner for " + channelId, e);
+            }
+        }, dbExecutor);
+    }
+
     public void removeTemporaryChannel(String channelId) {
         CompletableFuture.runAsync(() -> {
             String sql = "DELETE FROM temporary_channels WHERE channel_id = ?";
@@ -268,13 +350,9 @@ public class DatabaseManager {
         }, dbExecutor);
     }
 
-    public CompletableFuture<Boolean> isTemporaryChannel(String channelId) {
-        return getTemporaryChannel(channelId).thenApply(Optional::isPresent);
-    }
-
     public CompletableFuture<Optional<UserChannelPreference>> getUserChannelPreference(String guildId, String userId) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT preferred_user_limit, preferred_name_template, locked FROM user_channel_preferences WHERE guild_id = ? AND user_id = ?";
+            String sql = "SELECT preferred_user_limit, preferred_name_template, locked, auto_owner_switching FROM user_channel_preferences WHERE guild_id = ? AND user_id = ?";
             try (Connection conn = connect();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setString(1, guildId);
@@ -283,8 +361,9 @@ public class DatabaseManager {
                 if (rs.next()) {
                     Integer limit = rs.getObject("preferred_user_limit", Integer.class);
                     String nameTemplate = rs.getString("preferred_name_template");
-                    Integer defaultLocked = rs.getInt("locked");
-                    return Optional.of(new UserChannelPreference(guildId, userId, limit, nameTemplate, defaultLocked));
+                    Integer defaultLocked = rs.getObject("locked", Integer.class);
+                    Integer autoSwitch = rs.getObject("auto_owner_switching", Integer.class);
+                    return Optional.of(new UserChannelPreference(guildId, userId, limit, nameTemplate, defaultLocked, autoSwitch));
                 }
             } catch (SQLException e) {
                 LOGGER.error("Erro ao buscar UserChannelPreference para guild {} user {}:", guildId, userId, e);
@@ -294,27 +373,24 @@ public class DatabaseManager {
         }, dbExecutor);
     }
 
-    public CompletableFuture<Void> updateUserChannelPreference(String guildId, String userId, Integer preferredUserLimit, String preferredNameTemplate, Integer defaultLocked) {
+    public CompletableFuture<Void> updateUserChannelPreference(String guildId, String userId, Integer preferredUserLimit, String preferredNameTemplate, Integer defaultLocked, Integer autoOwnerSwitching) {
         return CompletableFuture.runAsync(() -> {
             String sql = """
                     INSERT OR REPLACE INTO user_channel_preferences
-                    (guild_id, user_id, preferred_user_limit, preferred_name_template, locked)
-                    VALUES (?, ?, ?, ?, ?);""";
+                    (guild_id, user_id, preferred_user_limit, preferred_name_template, locked, auto_owner_switching)
+                    VALUES (?, ?, ?, ?, ?, ?);""";
             try (Connection conn = connect();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setString(1, guildId);
                 pstmt.setString(2, userId);
-                if (preferredUserLimit != null) {
-                    pstmt.setInt(3, preferredUserLimit);
-                } else {
-                    pstmt.setNull(3, Types.INTEGER);
-                }
-                if (preferredNameTemplate != null) {
-                    pstmt.setString(4, preferredNameTemplate);
-                } else {
-                    pstmt.setNull(4, Types.VARCHAR);
-                }
-                pstmt.setInt(5, defaultLocked);
+                if (preferredUserLimit != null) pstmt.setInt(3, preferredUserLimit);
+                else pstmt.setNull(3, Types.INTEGER);
+                if (preferredNameTemplate != null) pstmt.setString(4, preferredNameTemplate);
+                else pstmt.setNull(4, Types.VARCHAR);
+                if (defaultLocked != null) pstmt.setInt(5, defaultLocked);
+                else pstmt.setNull(5, Types.INTEGER);
+                if (autoOwnerSwitching != null) pstmt.setInt(6, autoOwnerSwitching);
+                else pstmt.setNull(6, Types.INTEGER);
                 pstmt.executeUpdate();
                 LOGGER.info("Preferências de canal para user {} na guild {} atualizadas/inseridas.", userId, guildId);
             } catch (SQLException e) {
@@ -323,7 +399,6 @@ public class DatabaseManager {
             }
         }, dbExecutor);
     }
-
 
     public void shutdown() {
         LOGGER.info("Desligando o Executor de Banco de Dados...");
@@ -337,76 +412,5 @@ public class DatabaseManager {
             Thread.currentThread().interrupt();
             LOGGER.error("Desligamento do Executor de Banco de Dados interrompido.");
         }
-    }
-
-
-    public CompletableFuture<Optional<GuildConfig>> getGuildConfig(String guildId) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT * FROM guild_configs WHERE guild_id = ?";
-            try (Connection conn = connect();
-                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, guildId);
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    String logChannel = rs.getString("log_channel_id");
-                    String welcomeChannel = rs.getString("welcome_channel_id");
-                    String autoRole = rs.getString("auto_assign_role_id");
-                    String tempHub = rs.getString("temp_hub_channel_id");
-                    String tempCat = rs.getString("temp_channel_category_id");
-                    String tempPrefix = rs.getString("temp_channel_name_prefix");
-
-                    int userLimitRaw = rs.getInt("default_temp_channel_user_limit");
-                    Integer userLimit = rs.wasNull() ? null : userLimitRaw; // Se a coluna era null, userLimit será null
-
-                    int lockStatus = rs.getInt("default_temp_channel_lock");
-
-                    return Optional.of(new GuildConfig(guildId, logChannel, welcomeChannel, autoRole, tempHub, tempCat, tempPrefix, userLimit, lockStatus));
-                }
-            } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar GuildConfig para guild {}:", guildId, e);
-                throw new RuntimeException("DB Error fetching guild config for guild " + guildId, e);
-            }
-            return Optional.empty();
-        }, dbExecutor);
-    }
-
-    public CompletableFuture<Void> updateGuildConfig(GuildConfig config) {
-        return CompletableFuture.runAsync(() -> {
-            String sql = """
-                INSERT OR REPLACE INTO guild_configs (
-                    guild_id, log_channel_id, welcome_channel_id, auto_assign_role_id,
-                    temp_hub_channel_id, temp_channel_category_id, temp_channel_name_prefix,
-                    default_temp_channel_user_limit, default_temp_channel_lock
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""";
-            try (Connection conn = connect();
-                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                int i = 1;
-                pstmt.setString(i++, config.guildId);
-                pstmt.setString(i++, config.logChannelId);
-                pstmt.setString(i++, config.welcomeChannelId);
-                pstmt.setString(i++, config.autoAssignRoleId);
-                pstmt.setString(i++, config.tempHubChannelId);
-                pstmt.setString(i++, config.tempChannelCategoryId);
-                pstmt.setString(i++, config.tempChannelNamePrefix);
-
-                if (config.defaultTempChannelUserLimit != null) {
-                    pstmt.setInt(i++, config.defaultTempChannelUserLimit);
-                } else {
-                    pstmt.setNull(i++, Types.INTEGER);
-                }
-
-                if (config.defaultTempChannelLock != null) {
-                    pstmt.setInt(i++, config.defaultTempChannelLock);
-                } else {
-                    pstmt.setNull(i++, Types.INTEGER);
-                }
-
-                pstmt.executeUpdate();
-                LOGGER.info("Configuração da Guild {} atualizada/inserida no DB.", config.guildId);
-            } catch (SQLException e) {
-                LOGGER.error("Erro ao atualizar GuildConfig para guild {}:", config.guildId, e);
-                throw new RuntimeException("DB Error updating guild config for guild " + config.guildId, e);
-            }
-        }, dbExecutor);
     }
 }

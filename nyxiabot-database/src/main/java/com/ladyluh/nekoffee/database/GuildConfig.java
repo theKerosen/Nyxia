@@ -1,22 +1,24 @@
 package com.ladyluh.nekoffee.database;
 
-// Representa uma linha na tabela guild_configs
+
 public class GuildConfig {
     public String guildId;
     public String logChannelId;
     public String welcomeChannelId;
     public String autoAssignRoleId;
+    public String recordingsChannelId;
     public String tempHubChannelId;
     public String tempChannelCategoryId;
-    public String tempChannelNamePrefix; // "Sala de "
-    public Integer defaultTempChannelUserLimit; // Null ou 0 para ilimitado
-    public Integer defaultTempChannelLock; // False para destrancado
+    public String tempChannelNamePrefix;
+    public Integer defaultTempChannelUserLimit;
+    public Integer defaultTempChannelLock;
 
-    public GuildConfig(String guildId, String logChannelId, String welcomeChannelId, String autoAssignRoleId, String tempHubChannelId, String tempChannelCategoryId, String tempChannelNamePrefix, Integer defaultTempChannelUserLimit, Integer defaultTempChannelLock) {
+    public GuildConfig(String guildId, String logChannelId, String welcomeChannelId, String autoAssignRoleId, String recordingsChannelId, String tempHubChannelId, String tempChannelCategoryId, String tempChannelNamePrefix, Integer defaultTempChannelUserLimit, Integer defaultTempChannelLock) {
         this.guildId = guildId;
         this.logChannelId = logChannelId;
         this.welcomeChannelId = welcomeChannelId;
         this.autoAssignRoleId = autoAssignRoleId;
+        this.recordingsChannelId = recordingsChannelId;
         this.tempHubChannelId = tempHubChannelId;
         this.tempChannelCategoryId = tempChannelCategoryId;
         this.tempChannelNamePrefix = tempChannelNamePrefix;
@@ -24,16 +26,17 @@ public class GuildConfig {
         this.defaultTempChannelLock = defaultTempChannelLock;
     }
 
-    // Construtor para uma nova config (com padrões)
+
     public GuildConfig(String guildId) {
         this.guildId = guildId;
         this.logChannelId = "";
         this.welcomeChannelId = "";
         this.autoAssignRoleId = "";
+        this.recordingsChannelId = "";
         this.tempHubChannelId = "";
         this.tempChannelCategoryId = "";
-        this.tempChannelNamePrefix = "Sala de "; // Usar padrão do ConfigManager ou listener
-        this.defaultTempChannelUserLimit = 5; // Usar padrão do ConfigManager ou listener
-        this.defaultTempChannelLock = 0; // Usar padrão do ConfigManager ou listener
+        this.tempChannelNamePrefix = "Sala de ";
+        this.defaultTempChannelUserLimit = 5;
+        this.defaultTempChannelLock = 0;
     }
 }

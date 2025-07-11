@@ -27,7 +27,7 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.45.1.0</version> <!-- Verifique a versão mais recente no Maven Central -->
+            <version>3.45.1.0</version> 
         </dependency>
         <dependency>
             <groupId>com.ladyluh.nekoffee</groupId>
@@ -46,6 +46,18 @@
             <artifactId>nyxiabot-commands</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.ladyluh.nekoffee</groupId>
+            <artifactId>nyxiabot-services</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.ladyluh.nekoffee</groupId>
+            <artifactId>nyxiabot-cache</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -53,7 +65,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version> <!-- VERIFIQUE A VERSÃO MAIS RECENTE NO Maven Central -->
+                <version>3.5.1</version> 
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -61,22 +73,12 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <finalName>${project.artifactId}</finalName> <!-- Nome do JAR final -->
+                            <finalName>${project.artifactId}</finalName> 
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.ladyluh.nekoffee.NyxiaBot</mainClass> <!-- SUA CLASSE MAIN AQUI -->
+                                    <mainClass>com.ladyluh.nekoffee.NyxiaBot</mainClass> 
                                 </transformer>
-                                <!-- Se houver arquivos de serviço (META-INF/services) que precisam ser mesclados,
-                                     pode ser necessário um ServiceResourceTransformer.
-                                     Para a maioria dos casos, ManifestResourceTransformer é suficiente. -->
                             </transformers>
-                            <!-- Opcional: Relocations para evitar conflitos de classes entre dependências (avançado) -->
-                            <!-- <relocations>
-                                <relocation>
-                                    <pattern>com.google.common</pattern>
-                                    <shadedPattern>shaded.com.google.common</shadedPattern>
-                                </relelocation>
-                            </relocations> -->
                         </configuration>
                     </execution>
                 </executions>

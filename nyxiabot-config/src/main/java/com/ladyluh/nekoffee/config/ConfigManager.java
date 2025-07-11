@@ -4,15 +4,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Properties;
-import java.util.TreeMap;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class ConfigManager {
     private final Properties properties = new Properties();
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigManager.class);
-    private final TreeMap<Integer, String> xpRoleMappings = new TreeMap<>(); // Mapas ordenados pela chave
+    private final TreeMap<Integer, String> xpRoleMappings = new TreeMap<>(); 
 
     public ConfigManager() throws Exception {
 
@@ -84,6 +82,20 @@ public class ConfigManager {
         }
         LOGGER.info("Carregados {} mapeamentos de XP Role.", xpRoleMappings.size());
     }
+
+    public List<String> getBotStatuses() {
+        String statusesString = properties.getProperty("BOT_STATUSES", System.getenv("NEKOFFEE_BOT_STATUSES"));
+
+        if (statusesString == null || statusesString.trim().isEmpty()) {
+            return Collections.emptyList(); 
+        }
+
+        
+        return Arrays.stream(statusesString.split(","))
+                .map(String::trim)
+                .collect(Collectors.toList());
+    }
+
 
     /**
      * Retorna um mapa imutável de Level -> Role ID para XP Roles.

@@ -1,12 +1,17 @@
 package com.ladyluh.nekoffee.json.util.impl;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.ladyluh.nekoffee.api.entities.Message;
+import com.ladyluh.nekoffee.api.entities.channel.Channel;
 import com.ladyluh.nekoffee.json.util.JsonEngine;
+import com.ladyluh.nekoffee.json.util.mixin.ChannelMixIn;
+import com.ladyluh.nekoffee.json.util.mixin.MessageMixIn;
 
 public class JacksonJsonEngineImpl implements JsonEngine {
 
@@ -14,10 +19,13 @@ public class JacksonJsonEngineImpl implements JsonEngine {
 
     public JacksonJsonEngineImpl() {
         this.objectMapper = new ObjectMapper();
-        // Discord usa snake_case para nomes de campos JSON
         this.objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper.addMixIn(Channel.class, ChannelMixIn.class);
+        this.objectMapper.addMixIn(Message.class, MessageMixIn.class);
+        
+        this.objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
     @Override
@@ -34,7 +42,6 @@ public class JacksonJsonEngineImpl implements JsonEngine {
         try {
             return objectMapper.readValue(jsonString, clazz);
         } catch (JsonProcessingException e) {
-            // LOGAR A EXCEÇÃO ORIGINAL DO JACKSON
             System.err.println("Jackson Deserialization Exception for class " + clazz.getName() + ": " + e.getMessage());
             throw new RuntimeException("Erro ao desserializar JSON para objeto: " + clazz.getSimpleName(), e);
         }

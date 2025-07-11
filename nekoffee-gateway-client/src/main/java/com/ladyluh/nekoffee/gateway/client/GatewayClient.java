@@ -1,6 +1,7 @@
 package com.ladyluh.nekoffee.gateway.client;
 
 import com.ladyluh.nekoffee.api.gateway.GatewayIntent;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -21,6 +22,8 @@ public interface GatewayClient {
      */
     void setIntents(Collection<GatewayIntent> intents);
 
+    void sendVoiceStateUpdate(String guildId, @Nullable String channelId, boolean selfMute, boolean selfDeaf);
+
     /**
      * Conecta-se ao Gateway do Discord.
      *
@@ -37,7 +40,16 @@ public interface GatewayClient {
      * Envia um payload JSON para o Gateway.
      *
      * @param jsonPayload O payload a ser enviado.
-     * @return true se o envio foi bem-sucedido (enfileirado), false caso contrário.
      */
-    boolean send(String jsonPayload);
+    void send(String jsonPayload);
+
+    /**
+     * FIX: Add this method to the interface.
+     * Envia um payload de atualização de presença (Opcode 3) para o Gateway.
+     *
+     * @param payloadData O objeto de dados para a atualização de presença.
+     */
+    void sendPresenceUpdate(Object payloadData);
+
+
 }

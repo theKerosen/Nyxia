@@ -22,7 +22,7 @@ public class OkHttpRestClientImpl implements RestClient {
     private final ExecutorService callbackExecutor = Executors.newCachedThreadPool(
             runnable -> {
                 Thread t = Executors.defaultThreadFactory().newThread(runnable);
-                t.setName("Nekoffee-OkHttp-Callback-" + t.getId());
+                t.setName("Nekoffee-OkHttp-Callback");
                 t.setDaemon(true);
                 return t;
             });
@@ -30,11 +30,9 @@ public class OkHttpRestClientImpl implements RestClient {
 
     public OkHttpRestClientImpl() {
         this.httpClient = new OkHttpClient.Builder()
-
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .writeTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
-
                 .build();
     }
 
@@ -60,6 +58,17 @@ public class OkHttpRestClientImpl implements RestClient {
         }
         return builder.build();
     }
+
+    @Override
+    public CompletableFuture<String> postMultipart(String url, MultipartBody body, Map<String, String> headers) {
+        Request request = new Request.Builder()
+                .url(url)
+                .headers(buildHeaders(headers, false)) // Multipart body sets its own content type
+                .post(body)
+                .build();
+        return executeAsync(request);
+    }
+
 
     @Override
     public CompletableFuture<String> patch(String url, String jsonPayload, Map<String, String> headers) {
@@ -98,21 +107,17 @@ public class OkHttpRestClientImpl implements RestClient {
         httpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
-
                 callbackExecutor.submit(() -> future.completeExceptionally(new NekoffeeException("Request failed: " + request.method() + " " + request.url(), e)));
             }
 
             @Override
             public void onResponse(@NotNull Call call, @NotNull Response response) {
-
                 try (ResponseBody responseBody = response.body()) {
                     final String bodyString = responseBody != null ? responseBody.string() : null;
                     callbackExecutor.submit(() -> {
                         if (response.isSuccessful()) {
                             future.complete(bodyString);
                         } else {
-
-
                             String errorMessage = "Request to " + request.url() + " failed with status " + response.code();
                             if (bodyString != null && !bodyString.isEmpty()) {
                                 errorMessage += "\nResponse: " + bodyString;
@@ -134,7 +139,6 @@ public class OkHttpRestClientImpl implements RestClient {
         if (jsonPayload != null && !jsonPayload.isEmpty()) {
             body = RequestBody.create(jsonPayload, JSON);
         } else {
-
             body = RequestBody.create(new byte[0], null);
         }
 

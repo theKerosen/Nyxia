@@ -2,6 +2,7 @@ package com.ladyluh.nekoffee.commands;
 
 import com.ladyluh.nekoffee.api.NekoffeeClient;
 import com.ladyluh.nekoffee.api.entities.User;
+import com.ladyluh.nekoffee.cache.VoiceStateCacheManager;
 import com.ladyluh.nekoffee.config.ConfigManager;
 import com.ladyluh.nekoffee.database.DatabaseManager;
 import com.ladyluh.nekoffee.model.gateway.MessageCreateEvent;
@@ -13,19 +14,20 @@ public class CommandContext {
     private final NekoffeeClient client;
     private final ConfigManager config;
     private final DatabaseManager dbManager;
+    private final VoiceStateCacheManager voiceStateCacheManager;
     private final MessageCreateEvent event;
     private final List<String> args;
     private final String commandName;
 
-    public CommandContext(NekoffeeClient client, ConfigManager config, DatabaseManager dbManager, MessageCreateEvent event, String commandName, List<String> args) {
+    public CommandContext(NekoffeeClient client, ConfigManager config, DatabaseManager dbManager, VoiceStateCacheManager voiceStateCacheManager, MessageCreateEvent event, String commandName, List<String> args) {
         this.client = client;
         this.config = config;
         this.dbManager = dbManager;
+        this.voiceStateCacheManager = voiceStateCacheManager;
         this.event = event;
         this.commandName = commandName;
         this.args = args;
     }
-
 
     public NekoffeeClient getClient() {
         return client;
@@ -39,6 +41,10 @@ public class CommandContext {
         return dbManager;
     }
 
+    public VoiceStateCacheManager getVoiceStateCacheManager() {
+        return voiceStateCacheManager;
+    }
+
     public MessageCreateEvent getEvent() {
         return event;
     }
@@ -50,7 +56,6 @@ public class CommandContext {
     public String getCommandName() {
         return commandName;
     }
-
 
     public User getAuthor() {
         return event.getAuthor();

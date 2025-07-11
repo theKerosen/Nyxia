@@ -29,14 +29,28 @@
     <file url="file://$PROJECT_DIR$/nekoffee-json-util/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nekoffee-model/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nekoffee-model/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-opus/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-opus/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-voice/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nekoffee-voice/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-cache/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-cache/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot-commands/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot-commands/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot-config/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot-config/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot-database/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot-database/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-services/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-services/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-voice/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nyxiabot-voice/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/nyxiabot/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/opus-jna-wrapper/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/opus-jna-wrapper/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
   </component>
