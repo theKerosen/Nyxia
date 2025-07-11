@@ -25,6 +25,7 @@ public interface VoiceConnection {
      *
      * @return A CompletableFuture that completes upon full disconnection.
      */
+
     CompletableFuture<Void> disconnect();
 
     void setReceivingHandler(NekoffeeClient.AudioReceiveHandler handler);

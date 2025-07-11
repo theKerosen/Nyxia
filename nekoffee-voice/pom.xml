@@ -55,5 +55,11 @@
             <artifactId>weupnp</artifactId>
             <version>0.1.4</version>
         </dependency>
+        <dependency>
+            <groupId>ws.schild</groupId>
+            <artifactId>jave-core</artifactId>
+            <version>3.5.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 </project>

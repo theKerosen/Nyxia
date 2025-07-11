@@ -2,7 +2,6 @@ package com.ladyluh.nekoffee.api.gateway;
 
 /**
  * Representa os Gateway Intents que um bot pode solicitar.
- * Veja: https://discord.com/developers/docs/topics/gateway#gateway-intents
  */
 public enum GatewayIntent {
     GUILDS(1),

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.iwebpp.crypto.TweetNaclFast;
 import com.ladyluh.nekoffee.api.NekoffeeClient;
 import com.ladyluh.nekoffee.api.entities.User;
-import com.ladyluh.nekoffee.api.voice.VoiceConnection;
 import com.ladyluh.nekoffee.json.util.JsonEngine;
 import com.ladyluh.nekoffee.opus.OpusDecoder;
 import okhttp3.*;
@@ -22,12 +21,14 @@ import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class VoiceConnectionImpl implements VoiceConnection {
+public class VoiceConnectionImpl implements com.ladyluh.nekoffee.api.voice.VoiceConnection {
     private static final Logger LOGGER = LoggerFactory.getLogger(VoiceConnectionImpl.class);
+    private static final int PCM_FRAME_SIZE = 3840;
     private final String guildId;
     private final String userId;
     private final NekoffeeClient client;
@@ -39,6 +40,8 @@ public class VoiceConnectionImpl implements VoiceConnection {
     private final Map<Integer, String> ssrcToUserMap = new ConcurrentHashMap<>();
     private final Map<String, User> userIdToUserCache = new ConcurrentHashMap<>();
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final Map<Integer, Short> lastSequenceMap = new ConcurrentHashMap<>();
+    private final Map<Integer, byte[]> pcmUserBuffers = new ConcurrentHashMap<>();
     private String encryptionMode;
     private WebSocket voiceWebSocket;
     private DatagramSocket udpSocket;
@@ -136,6 +139,8 @@ public class VoiceConnectionImpl implements VoiceConnection {
             opusDecoders.clear();
             ssrcToUserMap.clear();
             userIdToUserCache.clear();
+            pcmUserBuffers.clear();
+            lastSequenceMap.clear();
 
             LOGGER.info("Voice connection for guild {} fully disconnected.", guildId);
         }, voiceExecutor).whenComplete((res, err) -> {
@@ -255,6 +260,9 @@ public class VoiceConnectionImpl implements VoiceConnection {
         LOGGER.debug("UDP listener loop for guild {} has finished.", guildId);
     }
 
+    /**
+     * The core audio processing logic. This is now the entry point before data is buffered and framed.
+     */
     private void processAudioPacket(ByteBuffer rtpPacket) {
         try {
             if (!secretKeyLatch.await(2, TimeUnit.SECONDS)) {
@@ -286,56 +294,107 @@ public class VoiceConnectionImpl implements VoiceConnection {
             return;
         }
 
+        OpusDecoder decoder = opusDecoders.computeIfAbsent(ssrc, k -> new OpusDecoder());
 
+
+        short sequence = rtpPacket.getShort(2);
+        Short lastSequence = lastSequenceMap.get(ssrc);
+        if (lastSequence != null) {
+            short expectedSequence = (short) (lastSequence + 1);
+            if (sequence > expectedSequence) {
+                int packetsLost = sequence - expectedSequence;
+                if (packetsLost > 0 && packetsLost < 10) {
+                    LOGGER.warn("Detected {} lost packet(s) for SSRC {}. Concealing...", packetsLost, ssrc);
+                    for (int i = 0; i < packetsLost; i++) {
+                        byte[] concealedPcm = decoder.decodeWithPLC();
+                        if (concealedPcm != null) {
+
+                            handlePcmData(user, ssrc, concealedPcm);
+                        }
+                    }
+                }
+            }
+        }
+        lastSequenceMap.put(ssrc, sequence);
+
+
+        byte[] decryptedPayload = decryptPacket(rtpPacket);
+        if (decryptedPayload == null) return;
+
+        final int RTP_HEADER_SIZE = 12;
+        if (decryptedPayload.length <= RTP_HEADER_SIZE) {
+            return;
+        }
+
+        byte[] opusData = Arrays.copyOfRange(decryptedPayload, RTP_HEADER_SIZE, decryptedPayload.length);
+        byte[] pcmAudio = decoder.decodePacket(opusData);
+
+        if (pcmAudio != null) {
+
+            handlePcmData(user, ssrc, pcmAudio);
+        }
+    }
+
+    /**
+     * New method to buffer and frame PCM data into fixed-size chunks for the mixer.
+     */
+    private void handlePcmData(User user, int ssrc, byte[] newPcmData) {
+        if (receiveHandler == null) return;
+
+
+        byte[] leftoverPcm = pcmUserBuffers.get(ssrc);
+
+        byte[] fullBuffer;
+        if (leftoverPcm != null && leftoverPcm.length > 0) {
+
+            fullBuffer = new byte[leftoverPcm.length + newPcmData.length];
+            System.arraycopy(leftoverPcm, 0, fullBuffer, 0, leftoverPcm.length);
+            System.arraycopy(newPcmData, 0, fullBuffer, leftoverPcm.length, newPcmData.length);
+        } else {
+            fullBuffer = newPcmData;
+        }
+
+        int offset = 0;
+
+        while (fullBuffer.length - offset >= PCM_FRAME_SIZE) {
+            byte[] frameToSend = new byte[PCM_FRAME_SIZE];
+            System.arraycopy(fullBuffer, offset, frameToSend, 0, PCM_FRAME_SIZE);
+            receiveHandler.handleUserAudio(user, frameToSend);
+            offset += PCM_FRAME_SIZE;
+        }
+
+
+        if (offset < fullBuffer.length) {
+            byte[] remainingData = Arrays.copyOfRange(fullBuffer, offset, fullBuffer.length);
+            pcmUserBuffers.put(ssrc, remainingData);
+        } else {
+            pcmUserBuffers.remove(ssrc);
+        }
+    }
+
+    @Nullable
+    private byte[] decryptPacket(ByteBuffer rtpPacket) {
         rtpPacket.position(0);
         int packetLimit = rtpPacket.limit();
+        final int NONCE_SIZE = 24;
 
-        if (packetLimit < 24) return;
+        if (packetLimit < 12 + NONCE_SIZE) {
+            return null;
+        }
+        final byte[] nonce = new byte[NONCE_SIZE];
+        rtpPacket.get(packetLimit - NONCE_SIZE, nonce, 0, NONCE_SIZE);
 
-        final byte[] nonce = new byte[24];
-        rtpPacket.get(packetLimit - 24, nonce, 0, 24);
-
-        int encryptedAudioLength = packetLimit - 12 - 24;
-        if (encryptedAudioLength <= 0) return;
+        int encryptedAudioLength = packetLimit - 12 - NONCE_SIZE;
+        if (encryptedAudioLength <= 0) {
+            return null;
+        }
 
         final byte[] encryptedAudio = new byte[encryptedAudioLength];
         rtpPacket.position(12);
         rtpPacket.get(encryptedAudio, 0, encryptedAudioLength);
 
         TweetNaclFast.SecretBox cryptoBox = new TweetNaclFast.SecretBox(this.secretKey);
-        byte[] opusAudio = cryptoBox.open(encryptedAudio, nonce);
-
-        if (opusAudio == null) {
-            LOGGER.warn("Failed to decrypt audio packet for SSRC {}. Dropping packet.", ssrc);
-            return;
-        }
-
-
-        if (opusAudio.length <= 12) {
-            LOGGER.warn("Decrypted packet for SSRC {} is too small to contain Opus data (length: {}).", ssrc, opusAudio.length);
-            return;
-        }
-
-
-        byte[] rawOpusData = java.util.Arrays.copyOfRange(opusAudio, 12, opusAudio.length);
-
-
-        if (rawOpusData.length == 0) {
-            return;
-        }
-
-        OpusDecoder decoder = opusDecoders.computeIfAbsent(ssrc, k -> new OpusDecoder());
-        byte[] pcmAudio = decoder.decode(rawOpusData);
-
-        if (pcmAudio == null) {
-            return;
-        }
-
-        receiveHandler.handleUserAudio(user, pcmAudio);
-    }
-
-    public String getEncryptionMode() {
-        return encryptionMode;
+        return cryptoBox.open(encryptedAudio, nonce);
     }
 
     public void setEncryptionMode(String encryptionMode) {
@@ -396,11 +455,6 @@ public class VoiceConnectionImpl implements VoiceConnection {
 
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
-
-
-            LOGGER.warn("RAW VOICE GATEWAY PAYLOAD RECEIVED: {}", text);
-
-
             JsonNode payload = jsonEngine.fromJsonString(text, JsonNode.class);
             int op = payload.get("op").asInt();
             JsonNode data = payload.get("d");
@@ -411,28 +465,9 @@ public class VoiceConnectionImpl implements VoiceConnection {
                     ssrc = data.get("ssrc").asInt();
                     discordUdpAddress = new InetSocketAddress(data.get("ip").asText(), data.get("port").asInt());
 
-                    JsonNode ssrcsNode = data.get("ssrcs");
-                    if (ssrcsNode != null && ssrcsNode.isArray() && !ssrcsNode.isEmpty()) {
-                        LOGGER.info("Found 'ssrcs' array in READY payload. Populating SSRC map...");
-                        for (JsonNode ssrcMapping : ssrcsNode) {
-                            if (ssrcMapping.has("user_id") && ssrcMapping.has("ssrc")) {
-                                String ssrcUserId = ssrcMapping.get("user_id").asText();
-                                int userSsrc = ssrcMapping.get("ssrc").asInt();
-                                ssrcToUserMap.put(userSsrc, ssrcUserId);
-                                LOGGER.info("  -> Mapped SSRC {} to User ID {} from READY payload.", userSsrc, ssrcUserId);
-                            }
-                        }
-                    } else {
-                        LOGGER.warn("Voice READY payload did not contain a valid 'ssrcs' array. Map will be populated by SPEAKING events only.");
-                    }
-
                     startUdpDiscovery().thenAccept(info -> {
                         LOGGER.info("UDP Discovery successful. External IP: {}, Port: {}. Sending Select Protocol.", info.ip, info.port);
-
-
                         var connData = new SelectProtocolConnectionData(info.ip, info.port, "xsalsa20_poly1305_suffix");
-
-
                         var selectPayload = new SelectProtocolPayload(1, new SelectProtocolData("udp", connData));
                         webSocket.send(jsonEngine.toJsonString(selectPayload));
                     }).exceptionally(e -> {
@@ -471,11 +506,8 @@ public class VoiceConnectionImpl implements VoiceConnection {
                 case 5:
                     String speakingUserId = data.get("user_id").asText();
                     int speakingSsrc = data.get("ssrc").asInt();
-                    boolean speaking = data.has("speaking") && data.get("speaking").asBoolean();
-
                     ssrcToUserMap.put(speakingSsrc, speakingUserId);
-
-                    LOGGER.info("Speaking Update received (Opcode 5): User {} (SSRC {}) has updated speaking state (Speaking={}). Map updated.", speakingUserId, speakingSsrc, speaking);
+                    LOGGER.trace("Speaking Update received (Opcode 5): User {} mapped to SSRC {}.", speakingUserId, speakingSsrc);
                     break;
 
                 case 8:

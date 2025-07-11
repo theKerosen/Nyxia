@@ -10,30 +10,29 @@ import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ws.schild.jave.EncoderException;
+import ws.schild.jave.MultimediaObject;
+import ws.schild.jave.info.MultimediaInfo;
 import ws.schild.jave.process.ffmpeg.DefaultFFMPEGLocator;
 
 import java.awt.Color;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public class AudioRecordingService {
     private static final Logger LOGGER = LoggerFactory.getLogger(AudioRecordingService.class);
     private final NekoffeeClient client;
     private final JsonEngine jsonEngine;
     private final ConcurrentHashMap<String, RecordingSession> activeSessions = new ConcurrentHashMap<>();
-    // Use 95% of 8MB as the target size to be safe
     private static final long TARGET_FRAGMENT_SIZE = (long) (8 * 1024 * 1024 * 0.95);
 
     public AudioRecordingService(NekoffeeClient client, JsonEngine jsonEngine) {
@@ -48,12 +47,11 @@ public class AudioRecordingService {
 
         try {
             RecordingSession session = new RecordingSession(guildId, recordingsChannelId);
-            AudioReceiver receiver = new AudioReceiver(session.mixer);
-            session.mixer.start();
+            
 
             return client.joinVoiceChannel(guildId, channelId)
                     .thenAccept(connection -> {
-                        connection.setReceivingHandler(receiver);
+                        connection.setReceivingHandler(session.handler);
                         activeSessions.put(guildId, session);
                         LOGGER.info("Successfully joined channel {} and started recording for guild {}.", channelId, guildId);
                     })
@@ -79,6 +77,7 @@ public class AudioRecordingService {
         return client.leaveVoiceChannel(guildId).thenRunAsync(() -> {
             LOGGER.info("Voice disconnect complete. Finalizing files for guild {}.", guildId);
             try {
+                
                 File mixedPcmFile = session.getMixedPcmFile();
                 if (!mixedPcmFile.exists() || mixedPcmFile.length() == 0) {
                     LOGGER.warn("No audio was recorded for session {}. Nothing to upload.", session.recordingName);
@@ -94,7 +93,6 @@ public class AudioRecordingService {
 
                 if (finalOggFile.exists() && finalOggFile.length() > 0) {
                     if (finalOggFile.length() > TARGET_FRAGMENT_SIZE) {
-                        // File is too large, fragment it.
                         client.sendMessage(session.recordingsChannelId, "⚠️ O arquivo de áudio é muito grande. Dividindo em várias partes...");
                         try {
                             List<File> fragments = session.splitAudioFile(finalOggFile);
@@ -106,7 +104,6 @@ public class AudioRecordingService {
                             client.sendMessage(session.recordingsChannelId, "❌ Ocorreu um erro ao dividir o arquivo de áudio.");
                         }
                     } else {
-                        // File is small enough, upload directly.
                         uploadFile(session.recordingsChannelId, finalOggFile, finalOggFile.getName());
                     }
                 } else {
@@ -157,7 +154,7 @@ public class AudioRecordingService {
         final String recordingsChannelId;
         final Path recordingDir;
         final String recordingName;
-        final TimedAudioMixer mixer;
+        final RecordingAudioHandler handler;
         final File mixedPcmFile;
 
         RecordingSession(String guildId, String recordingsChannelId) throws IOException {
@@ -168,10 +165,12 @@ public class AudioRecordingService {
             Files.createDirectories(recordingDir);
 
             this.mixedPcmFile = recordingDir.resolve("mixed_audio.pcm").toFile();
-            this.mixer = new TimedAudioMixer(mixedPcmFile);
+            this.handler = new RecordingAudioHandler(mixedPcmFile);
         }
 
         public File getMixedPcmFile() {
+            
+            handler.close();
             return mixedPcmFile;
         }
 
@@ -208,29 +207,14 @@ public class AudioRecordingService {
             return targetOgg;
         }
 
-        private double getAudioDuration(File audioFile) throws IOException, InterruptedException {
-            DefaultFFMPEGLocator locator = new DefaultFFMPEGLocator();
-            String ffprobePath = locator.getExecutablePath().replace("ffmpeg", "ffprobe");
-
-            List<String> command = List.of(
-                    ffprobePath,
-                    "-v", "error",
-                    "-show_entries", "format=duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1",
-                    audioFile.getAbsolutePath()
-            );
-
-            ProcessBuilder pb = new ProcessBuilder(command);
-            Process process = pb.start();
-
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String durationStr = reader.readLine();
-                int exitCode = process.waitFor();
-                if (exitCode != 0 || durationStr == null) {
-                    throw new IOException("ffprobe failed to get duration for " + audioFile.getName());
-                }
-                return Double.parseDouble(durationStr);
+        private double getAudioDuration(File audioFile) throws Exception {
+            MultimediaObject media = new MultimediaObject(audioFile);
+            MultimediaInfo info = media.getInfo();
+            long durationMillis = info.getDuration();
+            if (durationMillis < 0) {
+                throw new Exception("Could not determine audio duration for " + audioFile.getName());
             }
+            return durationMillis / 1000.0;
         }
 
         public List<File> splitAudioFile(File sourceFile) throws Exception {
@@ -254,7 +238,8 @@ public class AudioRecordingService {
                         "-i", sourceFile.getAbsolutePath(),
                         "-ss", String.valueOf(startTime),
                         "-t", String.valueOf(fragmentDuration),
-                        "-c", "copy", // Use stream copy for speed, no re-encoding
+                        "-c", "copy",
+                        "-y",
                         fragmentFile.getAbsolutePath()
                 );
 
@@ -271,7 +256,7 @@ public class AudioRecordingService {
         }
 
         public void cleanup() {
-            mixer.close();
+            handler.close();
             try {
                 if (Files.exists(recordingDir)) {
                     Files.walk(recordingDir)

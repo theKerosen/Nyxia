@@ -18,6 +18,7 @@ public interface VoiceConnection {
      */
     CompletableFuture<Void> connect(String sessionId, String token, String endpoint);
 
+
     /**
      * Disconnects from the voice channel and returns a CompletableFuture that
      * completes when the disconnection process is fully finished.
