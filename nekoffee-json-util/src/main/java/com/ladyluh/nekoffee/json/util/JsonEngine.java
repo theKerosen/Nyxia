@@ -7,7 +7,6 @@ public interface JsonEngine {
      * Serializa um objeto para uma string JSON.
      * @param object O objeto a ser serializado.
      * @return A representação JSON do objeto.
-     * @throws RuntimeException 
 
      */
     String toJsonString(Object object);

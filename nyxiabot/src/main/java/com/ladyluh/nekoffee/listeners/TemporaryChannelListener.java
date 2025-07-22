@@ -139,13 +139,10 @@ public class TemporaryChannelListener implements EventListener {
 
                         
                         return client.createGuildChannel(guildId, payload)
-                                .thenCompose(createdChannel -> {
-                                    
-                                    return dbManager.addTemporaryChannel(createdChannel.getId(), guildId, userId)
-                                            .thenCompose(v -> applyChannelPermissions(createdChannel, userId, finalDefaultLocked)) 
-                                            .thenCompose(v -> client.modifyGuildMemberVoiceChannel(guildId, userId, createdChannel.getId())) 
-                                            .thenApply(v -> createdChannel); 
-                                });
+                                .thenCompose(createdChannel -> dbManager.addTemporaryChannel(createdChannel.getId(), guildId, userId)
+                                        .thenCompose(v -> applyChannelPermissions(createdChannel, userId, finalDefaultLocked))
+                                        .thenCompose(v -> client.modifyGuildMemberVoiceChannel(guildId, userId, createdChannel.getId()))
+                                        .thenApply(v -> createdChannel));
                     });
         });
     }

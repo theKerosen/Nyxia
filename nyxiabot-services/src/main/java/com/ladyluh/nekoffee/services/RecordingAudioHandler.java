@@ -9,11 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
@@ -162,9 +158,9 @@ public class RecordingAudioHandler implements NekoffeeClient.AudioReceiveHandler
         Map<String, List<SpeakingSegment>> mergedSegmentsByUser = new ConcurrentHashMap<>();
         segmentsByUser.forEach((userId, segments) -> {
             if (segments.isEmpty()) return;
-            segments.sort((s1, s2) -> Long.compare(s1.startTimeMs, s2.startTimeMs));
+            segments.sort(Comparator.comparingLong(s -> s.startTimeMs));
             List<SpeakingSegment> merged = new ArrayList<>();
-            SpeakingSegment currentMerge = new SpeakingSegment(userId, segments.get(0).startTimeMs, segments.get(0).endTimeMs);
+            SpeakingSegment currentMerge = new SpeakingSegment(userId, segments.getFirst().startTimeMs, segments.getFirst().endTimeMs);
             for (int i = 1; i < segments.size(); i++) {
                 SpeakingSegment next = segments.get(i);
                 if (next.startTimeMs - currentMerge.endTimeMs <= FRAME_DURATION_MS) {

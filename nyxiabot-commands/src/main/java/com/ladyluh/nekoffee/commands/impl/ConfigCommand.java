@@ -8,6 +8,7 @@ import com.ladyluh.nekoffee.commands.CommandContext;
 import com.ladyluh.nekoffee.database.DatabaseManager;
 import com.ladyluh.nekoffee.database.GuildConfig;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,14 +77,11 @@ public class ConfigCommand implements Command {
                                 String subCommand = ctx.getArgs().getFirst().toLowerCase();
                                 List<String> cmdArgs = ctx.getArgs().subList(1, ctx.getArgs().size());
 
-                                switch (subCommand) {
-                                    case "show":
-                                        return showConfig(ctx, cmdArgs);
-                                    case "set":
-                                        return setConfig(ctx, cmdArgs);
-                                    default:
-                                        return showHelp(ctx);
-                                }
+                                return switch (subCommand) {
+                                    case "show" -> showConfig(ctx, cmdArgs);
+                                    case "set" -> setConfig(ctx, cmdArgs);
+                                    default -> showHelp(ctx);
+                                };
                             });
                 });
     }
@@ -154,19 +152,19 @@ public class ConfigCommand implements Command {
             return ctx.reply("Uso: `!config set <key> <value>`");
         }
 
-        String key = args.get(0).toLowerCase();
+        String key = args.getFirst().toLowerCase();
         String rawValue = String.join(" ", args.subList(1, args.size())).trim();
         String guildId = ctx.getGuildId();
 
         return dbManager.getGuildConfig(guildId)
                 .thenCompose(configOpt -> { 
                     GuildConfig guildConfig = configOpt.orElse(new GuildConfig(guildId));
-                    Field targetField = null; 
+                    Field targetField;
 
                     
                     Pattern pattern = Pattern.compile("_([a-z])");
                     Matcher matcher = pattern.matcher(key);
-                    StringBuffer sb = new StringBuffer();
+                    StringBuilder sb = new StringBuilder();
                     while (matcher.find()) {
                         matcher.appendReplacement(sb, matcher.group(1).toUpperCase());
                     }
@@ -180,43 +178,11 @@ public class ConfigCommand implements Command {
 
                     try {
                         targetField = GuildConfig.class.getDeclaredField(fieldName);
-                        targetField.setAccessible(true); 
+                        targetField.setAccessible(true);
 
-                        Object valueToSet = null;
-                        Class<?> fieldType = targetField.getType();
+                        Object valueToSet = getObject(targetField, rawValue, key);
 
-                        
-                        String processedValue = rawValue;
-                        if (rawValue.matches("<#[0-9]+>")) {
-                            processedValue = rawValue.substring(2, rawValue.length() - 1);
-                        } else if (rawValue.matches("<@&[0-9]+>")) {
-                            processedValue = rawValue.substring(3, rawValue.length() - 1);
-                        } else if (rawValue.matches("<@!?[0-9]+>")) {
-                            processedValue = rawValue.replaceAll("[<@!>]", "").replaceAll(">", "");
-                        }
 
-                        
-                        if (processedValue.isEmpty() || processedValue.equalsIgnoreCase("null")) {
-                            valueToSet = null; 
-                        } else if (fieldType == String.class) {
-                            valueToSet = processedValue;
-                        } else if (fieldType == Integer.class || fieldType == int.class) {
-                            int intValue = Integer.parseInt(processedValue);
-                            if (key.equals("default_temp_channel_user_limit") && (intValue < 0 || intValue > 99)) {
-                                throw new IllegalArgumentException("Limite de usuários deve ser entre 0 e 99.");
-                            }
-                            valueToSet = intValue;
-                        } else if (fieldType == Boolean.class || fieldType == boolean.class) {
-                            
-                            if (!processedValue.equalsIgnoreCase("true") && !processedValue.equalsIgnoreCase("false")) {
-                                throw new IllegalArgumentException("Valor deve ser 'true' ou 'false'.");
-                            }
-                            valueToSet = Boolean.parseBoolean(processedValue);
-                        } else {
-                            throw new IllegalArgumentException("Tipo de valor para '" + key + "' não suportado.");
-                        }
-
-                        
                         targetField.set(guildConfig, valueToSet); 
 
                         finalReplyMessage = "Configuração `" + key + "` definida para: `" + configFormat(valueToSet) + "`";
@@ -242,5 +208,42 @@ public class ConfigCommand implements Command {
                                 return null;
                             });
                 });
+    }
+
+    private static @Nullable Object getObject(Field targetField, String rawValue, String key) {
+        Object valueToSet;
+        Class<?> fieldType = targetField.getType();
+
+
+        String processedValue = rawValue;
+        if (rawValue.matches("<#[0-9]+>")) {
+            processedValue = rawValue.substring(2, rawValue.length() - 1);
+        } else if (rawValue.matches("<@&[0-9]+>")) {
+            processedValue = rawValue.substring(3, rawValue.length() - 1);
+        } else if (rawValue.matches("<@!?[0-9]+>")) {
+            processedValue = rawValue.replaceAll("[<@!>]", "").replaceAll(">", "");
+        }
+
+
+        if (processedValue.isEmpty() || processedValue.equalsIgnoreCase("null")) {
+            valueToSet = null;
+        } else if (fieldType == String.class) {
+            valueToSet = processedValue;
+        } else if (fieldType == Integer.class || fieldType == int.class) {
+            int intValue = Integer.parseInt(processedValue);
+            if (key.equals("default_temp_channel_user_limit") && (intValue < 0 || intValue > 99)) {
+                throw new IllegalArgumentException("Limite de usuários deve ser entre 0 e 99.");
+            }
+            valueToSet = intValue;
+        } else if (fieldType == Boolean.class || fieldType == boolean.class) {
+
+            if (!processedValue.equalsIgnoreCase("true") && !processedValue.equalsIgnoreCase("false")) {
+                throw new IllegalArgumentException("Valor deve ser 'true' ou 'false'.");
+            }
+            valueToSet = Boolean.parseBoolean(processedValue);
+        } else {
+            throw new IllegalArgumentException("Tipo de valor para '" + key + "' não suportado.");
+        }
+        return valueToSet;
     }
 }

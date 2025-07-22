@@ -8,7 +8,6 @@ import com.ladyluh.nekoffee.api.event.EventListener;
 import com.ladyluh.nekoffee.api.event.guild.member.GuildMemberAddEvent;
 import com.ladyluh.nekoffee.builder.EmbedBuilder;
 import com.ladyluh.nekoffee.builder.MessageBuilder;
-import com.ladyluh.nekoffee.config.ConfigManager;
 import com.ladyluh.nekoffee.database.DatabaseManager;
 import com.ladyluh.nekoffee.database.GuildConfig;
 import com.ladyluh.nekoffee.model.gateway.ReadyEvent;
