@@ -61,7 +61,6 @@ public class MessageEventListener implements EventListener {
         String guildIdInfo = guildId != null ? " (Guild: " + guildId + ")" : " (DM)";
         LOGGER.debug("Mensagem de {}{}: {}", author.getAsTag(), guildIdInfo, content);
 
-
         if (guildId != null) {
             dbManager.getUserXP(guildId, author.getId())
                     .thenAccept(currentXP -> {
@@ -84,7 +83,6 @@ public class MessageEventListener implements EventListener {
                                 leveledUp = false;
                             }
 
-
                             dbManager.updateUserXP(currentXP.getGuildId(), currentXP.getUserId(), currentXP.getXp(), currentXP.getLevel(), currentXP.getLastMessageTimestamp())
                                     .thenRun(() -> LOGGER.debug("{} ganhou {} XP. Total: {}, Nível: {}", author.getAsTag(), xpGained, currentXP.getXp(), currentXP.getLevel()))
                                     .thenCompose(v -> {
@@ -106,7 +104,6 @@ public class MessageEventListener implements EventListener {
                     });
         }
 
-
         if (content.startsWith(commandPrefix)) {
             String commandLine = content.substring(commandPrefix.length()).trim();
             if (commandLine.isEmpty()) return;
@@ -115,7 +112,6 @@ public class MessageEventListener implements EventListener {
             String commandName = parts[0].toLowerCase();
             String argsString = parts.length > 1 ? parts[1] : "";
             List<String> argsList = Arrays.asList(argsString.split("\\s+"));
-
 
             commandManager.handleCommand(commandName, argsList, event);
         }
@@ -149,16 +145,16 @@ public class MessageEventListener implements EventListener {
         StringBuilder escapedText = new StringBuilder();
         for (char c : text.toCharArray()) {
             switch (c) {
-                case '*':   // Bold, Italic
-                case '_':   // Italic, Underline
-                case '~':   // Strikethrough
-                case '`':   // Inline code
-                case '|':   // Spoiler
-                case '[':   // Link
-                case ']':   // Link
-                case '(':   // Link
-                case ')':   // Link
-                case '\\':  // The escape character itself
+                case '*':   
+                case '_':   
+                case '~':   
+                case '`':   
+                case '|':   
+                case '[':   
+                case ']':   
+                case '(':   
+                case ')':   
+                case '\\':  
                     escapedText.append('\\');
                     escapedText.append(c);
                     break;

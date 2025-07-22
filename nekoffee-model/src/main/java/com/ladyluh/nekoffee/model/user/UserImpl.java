@@ -24,7 +24,6 @@ public class UserImpl extends AbstractDiscordEntity implements User {
     @JsonProperty("system")
     private boolean system;
 
-
     public UserImpl() {
     }
 
@@ -61,10 +60,8 @@ public class UserImpl extends AbstractDiscordEntity implements User {
             return String.format("https://cdn.discordapp.com/avatars/%s/%s.%s?size=128", getId(), avatarId, format);
         } else {
 
-
             int defaultAvatarIndex;
             if ("0".equals(discriminator)) {
-
 
                 defaultAvatarIndex = (int) ((getIdLong() >> 22) % 6);
             } else {

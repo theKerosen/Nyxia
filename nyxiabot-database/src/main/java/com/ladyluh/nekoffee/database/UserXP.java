@@ -19,7 +19,6 @@ public class UserXP {
         this(guildId, userId, 0, 0, 0);
     }
 
-
     public String getGuildId() {
         return guildId;
     }
@@ -39,7 +38,6 @@ public class UserXP {
     public long getLastMessageTimestamp() {
         return lastMessageTimestamp;
     }
-
 
     public void setXp(int xp) {
         this.xp = xp;

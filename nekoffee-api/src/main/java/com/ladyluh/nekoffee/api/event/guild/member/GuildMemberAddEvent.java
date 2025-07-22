@@ -10,7 +10,6 @@ import java.util.concurrent.CompletableFuture;
 public class GuildMemberAddEvent extends AbstractEvent {
     private final Member member;
 
-
     public GuildMemberAddEvent(NekoffeeClient nekoffeeClient, Member member /*, String guildId */) {
         super(nekoffeeClient);
         this.member = member;

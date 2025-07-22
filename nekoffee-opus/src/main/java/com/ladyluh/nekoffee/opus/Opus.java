@@ -16,7 +16,6 @@ public interface Opus extends Library {
 
     Opus INSTANCE = Native.load("opus", Opus.class);
 
-
     int OPUS_OK = 0;
     int OPUS_BAD_ARG = -1;
     int OPUS_BUFFER_TOO_SMALL = -2;
@@ -28,7 +27,6 @@ public interface Opus extends Library {
     int OPUS_APPLICATION_AUDIO = 2049;
     int OPUS_SET_BITRATE_REQUEST = 4002;
 
-
     Pointer opus_decoder_create(int Fs, int channels, IntBuffer error);
 
     int opus_decode(Pointer st, byte[] in, int len, ShortBuffer out, int frame_size, int decode_fec);
@@ -36,7 +34,6 @@ public interface Opus extends Library {
     void opus_decoder_destroy(Pointer st);
 
     String opus_strerror(int error);
-
 
     Pointer opus_encoder_create(int Fs, int channels, int application, IntBuffer error);
 

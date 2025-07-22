@@ -43,5 +43,4 @@ public interface User extends DiscordEntity {
      */
     boolean isSystem();
 
-    // Outros métodos como getBannerId(), getAccentColor(), etc. podem ser adicionados depois.
 }

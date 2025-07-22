@@ -20,14 +20,12 @@ public class AudioReceiver implements NekoffeeClient.AudioReceiveHandler {
 
     @Override
     public void handleUserAudio(User user, byte[] pcmData) {
-        // Simply queue the audio data for the mixer to process on its own clock.
         mixer.queueAudio(user, pcmData);
     }
 
     @Override
     public void onShutdown() {
         LOGGER.info("Audio receiver shutting down. Delegating to mixer.");
-        // The mixer is now responsible for closing all resources.
         mixer.close();
     }
 }

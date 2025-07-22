@@ -25,5 +25,4 @@ public interface VoiceState {
 
     String getRequestToSpeakTimestamp();
 
-
 }

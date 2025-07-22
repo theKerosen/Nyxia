@@ -10,12 +10,11 @@ import java.util.concurrent.CompletableFuture;
 
 public interface Member extends DiscordEntity {
 
-
     /**
      * @return As permissões bitwise EFETIVAS do membro nesta guild como um CompletableFuture.
      *         Isto considera as permissões da guild @everyone e de todos os cargos do membro.
      */
-    CompletableFuture<Long> getPermissionsRaw(); // <<< MUDOU PARA CompletableFuture<Long>
+    CompletableFuture<Long> getPermissionsRaw(); 
 
     /**
      * Verifica assincronamente se este membro tem uma permissão específica.
@@ -23,14 +22,14 @@ public interface Member extends DiscordEntity {
      * @param permission A permissão a ser verificada.
      * @return Um CompletableFuture contendo true se o membro possui a permissão, false caso contrário.
      */
-    CompletableFuture<Boolean> hasPermission(Permission permission); // <<< MUDOU PARA CompletableFuture<Boolean>
+    CompletableFuture<Boolean> hasPermission(Permission permission); 
 
     /**
      * Verifica assincronamente se este membro tem TODAS as permissões especificadas.
      * @param permissions As permissões a serem verificadas.
      * @return Um CompletableFuture contendo true se o membro possui todas as permissões, false caso contrário.
      */
-    CompletableFuture<Boolean> hasPermissions(Collection<Permission> permissions); // <<< MUDOU PARA CompletableFuture<Boolean>
+    CompletableFuture<Boolean> hasPermissions(Collection<Permission> permissions); 
     /**
      * @return O objeto User associado a este membro. Contém informações globais do usuário.
      */
@@ -93,6 +92,5 @@ public interface Member extends DiscordEntity {
      * @return Um CompletableFuture contendo a Guild.
      */
     CompletableFuture<Guild> retrieveGuild(NekoffeeClient client);
-
 
 }

@@ -8,133 +8,212 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Arrays;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 public class RecordingAudioHandler implements NekoffeeClient.AudioReceiveHandler, AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(RecordingAudioHandler.class);
     private static final int FRAME_DURATION_MS = 20;
     private static final int PCM_FRAME_SIZE = 3840;
 
-    private final Map<String, ConcurrentLinkedQueue<byte[]>> userPcmQueues = new ConcurrentHashMap<>();
-    private final Map<String, byte[]> userPcmBuffers = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService mixerScheduler;
-    private final RandomAccessFile mixedOutputFile;
-    private volatile boolean isRunning = true;
+    public static class SpeakingSegment {
+        public final String userId;
+        public final long startTimeMs;
+        public final long endTimeMs;
 
-    public RecordingAudioHandler(File outputFile) throws IOException {
-        this.mixedOutputFile = new RandomAccessFile(outputFile, "rw");
+        public SpeakingSegment(String userId, long startTimeMs, long endTimeMs) {
+            this.userId = userId;
+            this.startTimeMs = startTimeMs;
+            this.endTimeMs = endTimeMs;
+        }
+    }
+
+    private final Path recordingDir;
+    private final Map<String, RandomAccessFile> userAudioFiles = new ConcurrentHashMap<>();
+    private final Map<String, ConcurrentLinkedQueue<byte[]>> userPcmQueues = new ConcurrentHashMap<>();
+    private final List<SpeakingSegment> speakingTimeline = Collections.synchronizedList(new ArrayList<>());
+    private final ScheduledExecutorService mixerScheduler;
+    private final byte[] silenceFrame = new byte[PCM_FRAME_SIZE];
+    private volatile boolean isRunning = true;
+    private final AtomicLong frameCounter = new AtomicLong(0);
+
+    public RecordingAudioHandler(Path recordingDir) {
+        this.recordingDir = recordingDir;
         this.mixerScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "Nekoffee-Recording-Mixer");
+            Thread t = new Thread(r, "Nekoffee-Recording-Clock");
             t.setDaemon(true);
             return t;
         });
-        this.mixerScheduler.scheduleAtFixedRate(this::mixAndWriteFrame, 0, FRAME_DURATION_MS, TimeUnit.MILLISECONDS);
-        LOGGER.info("RecordingAudioHandler started for output file: {}", outputFile.getAbsolutePath());
+        LOGGER.info("RecordingAudioHandler initialized for output directory: {}", recordingDir);
+    }
+
+    public void start() {
+        if (isRunning) {
+            LOGGER.info("Starting RecordingAudioHandler master clock.");
+            this.mixerScheduler.scheduleAtFixedRate(this::processNextFrame, 0, FRAME_DURATION_MS, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    /**
+     * Proactively creates files for all users present at the start of the recording.
+     * @param userIds A set of user IDs to initialize.
+     */
+    public void initializeParticipants(Set<String> userIds) {
+        LOGGER.info("Pre-initializing PCM files for {} participants.", userIds.size());
+        for (String userId : userIds) {
+            userPcmQueues.computeIfAbsent(userId, k -> new ConcurrentLinkedQueue<>());
+            userAudioFiles.computeIfAbsent(userId, id -> {
+                try {
+                    File file = recordingDir.resolve("user_" + id + ".pcm").toFile();
+                    return new RandomAccessFile(file, "rw");
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to create initial PCM file for user " + id, e);
+                }
+            });
+        }
     }
 
     @Override
     public boolean canReceiveUser(User user) {
-        return user != null && !user.isBot();
+        if (user == null || user.isBot()) {
+            return false;
+        }
+        userPcmQueues.computeIfAbsent(user.getId(), k -> new ConcurrentLinkedQueue<>());
+        userAudioFiles.computeIfAbsent(user.getId(), id -> {
+            long framesToPad = frameCounter.get();
+            try {
+                File fileHandle = recordingDir.resolve("user_" + id + ".pcm").toFile();
+                RandomAccessFile file = new RandomAccessFile(fileHandle, "rw");
+                if (framesToPad > 0) {
+                    LOGGER.info("New user {} joined mid-recording. Padding their audio file with {} silent frames to synchronize.", id, framesToPad);
+                    byte[] paddingBuffer = new byte[PCM_FRAME_SIZE];
+                    for (int i = 0; i < framesToPad; i++) {
+                        file.write(paddingBuffer);
+                    }
+                }
+                return file;
+            } catch (IOException e) {
+                LOGGER.error("Fatal: Failed to create or pad PCM file for new user {}", id, e);
+                throw new RuntimeException("Failed to create/pad PCM file for user " + id, e);
+            }
+        });
+        return true;
     }
 
     @Override
     public void handleUserAudio(User user, byte[] pcmData) {
-        if (!isRunning || pcmData == null) {
+        if (!isRunning || pcmData == null || user == null) {
             return;
         }
-
-
-        String userId = user.getId();
-        byte[] buffer = userPcmBuffers.get(userId);
-        byte[] fullPcm = new byte[pcmData.length + (buffer != null ? buffer.length : 0)];
-
-        if (buffer != null) {
-            System.arraycopy(buffer, 0, fullPcm, 0, buffer.length);
+        ConcurrentLinkedQueue<byte[]> queue = userPcmQueues.get(user.getId());
+        if (queue != null) {
+            queue.offer(pcmData);
         }
-        System.arraycopy(pcmData, 0, fullPcm, (buffer != null ? buffer.length : 0), pcmData.length);
+    }
 
-        int offset = 0;
-        ConcurrentLinkedQueue<byte[]> userQueue = userPcmQueues.computeIfAbsent(userId, k -> new ConcurrentLinkedQueue<>());
+    private void processNextFrame() {
+        if (!isRunning) return;
 
-        while (fullPcm.length - offset >= PCM_FRAME_SIZE) {
-            byte[] frame = Arrays.copyOfRange(fullPcm, offset, offset + PCM_FRAME_SIZE);
-            userQueue.offer(frame);
-            offset += PCM_FRAME_SIZE;
+        long currentFrame = frameCounter.getAndIncrement();
+
+        for (String userId : userAudioFiles.keySet()) {
+            RandomAccessFile userFile = userAudioFiles.get(userId);
+            ConcurrentLinkedQueue<byte[]> userQueue = userPcmQueues.get(userId);
+            if (userFile == null || userQueue == null) continue;
+
+            byte[] pcmFrame = userQueue.poll();
+            byte[] frameToWrite;
+
+            if (pcmFrame != null) {
+                frameToWrite = pcmFrame;
+                long startTime = currentFrame * FRAME_DURATION_MS;
+                speakingTimeline.add(new SpeakingSegment(userId, startTime, startTime + FRAME_DURATION_MS));
+            } else {
+                frameToWrite = silenceFrame;
+            }
+
+            try {
+                userFile.write(frameToWrite);
+            } catch (IOException e) {
+                LOGGER.error("Error writing audio frame for user {}, stopping handler.", userId, e);
+                close();
+                return;
+            }
         }
+    }
 
-        if (offset < fullPcm.length) {
-            userPcmBuffers.put(userId, Arrays.copyOfRange(fullPcm, offset, fullPcm.length));
-        } else {
-            userPcmBuffers.remove(userId);
+    public Map<String, List<SpeakingSegment>> getMergedSpeakingTimeline() {
+        if (speakingTimeline.isEmpty()) {
+            return Collections.emptyMap();
         }
+        Map<String, List<SpeakingSegment>> segmentsByUser = this.speakingTimeline.stream()
+                .collect(Collectors.groupingBy(s -> s.userId));
+        Map<String, List<SpeakingSegment>> mergedSegmentsByUser = new ConcurrentHashMap<>();
+        segmentsByUser.forEach((userId, segments) -> {
+            if (segments.isEmpty()) return;
+            segments.sort((s1, s2) -> Long.compare(s1.startTimeMs, s2.startTimeMs));
+            List<SpeakingSegment> merged = new ArrayList<>();
+            SpeakingSegment currentMerge = new SpeakingSegment(userId, segments.get(0).startTimeMs, segments.get(0).endTimeMs);
+            for (int i = 1; i < segments.size(); i++) {
+                SpeakingSegment next = segments.get(i);
+                if (next.startTimeMs - currentMerge.endTimeMs <= FRAME_DURATION_MS) {
+                    currentMerge = new SpeakingSegment(userId, currentMerge.startTimeMs, next.endTimeMs);
+                } else {
+                    merged.add(currentMerge);
+                    currentMerge = new SpeakingSegment(userId, next.startTimeMs, next.endTimeMs);
+                }
+            }
+            merged.add(currentMerge);
+            mergedSegmentsByUser.put(userId, merged);
+        });
+        return mergedSegmentsByUser;
+    }
+
+    public Map<String, RandomAccessFile> getUserAudioFiles() {
+        return userAudioFiles;
     }
 
     @Override
     public void onShutdown() {
-
         close();
-    }
-
-    private void mixAndWriteFrame() {
-        if (!isRunning) {
-            return;
-        }
-
-        byte[] mixedFrame = new byte[PCM_FRAME_SIZE];
-        ByteBuffer mixedBuffer = ByteBuffer.wrap(mixedFrame).order(ByteOrder.LITTLE_ENDIAN);
-        boolean hasAudio = false;
-
-        for (ConcurrentLinkedQueue<byte[]> userQueue : userPcmQueues.values()) {
-            byte[] pcmFrame = userQueue.poll();
-            if (pcmFrame != null) {
-                hasAudio = true;
-                ByteBuffer userBuffer = ByteBuffer.wrap(pcmFrame).order(ByteOrder.LITTLE_ENDIAN);
-                for (int i = 0; i < PCM_FRAME_SIZE / 2; i++) {
-                    int sampleIndex = i * 2;
-                    int mixedSample = mixedBuffer.getShort(sampleIndex) + userBuffer.getShort(sampleIndex);
-
-                    if (mixedSample > Short.MAX_VALUE) mixedSample = Short.MAX_VALUE;
-                    if (mixedSample < Short.MIN_VALUE) mixedSample = Short.MIN_VALUE;
-                    mixedBuffer.putShort(sampleIndex, (short) mixedSample);
-                }
-            }
-        }
-
-        try {
-
-
-            if (hasAudio) {
-                mixedOutputFile.write(mixedFrame);
-            }
-        } catch (IOException e) {
-            LOGGER.error("Error writing mixed audio frame to file, stopping handler.", e);
-            close();
-        }
     }
 
     @Override
     public void close() {
-        if (!isRunning) {
-            return;
-        }
+        if (!isRunning) return;
         isRunning = false;
-        LOGGER.info("Closing RecordingAudioHandler...");
+        LOGGER.info("Closing RecordingAudioHandler. Finalizing audio streams...");
         mixerScheduler.shutdown();
         try {
             if (!mixerScheduler.awaitTermination(200, TimeUnit.MILLISECONDS)) {
                 mixerScheduler.shutdownNow();
             }
-            mixedOutputFile.close();
-            LOGGER.info("RecordingAudioHandler closed successfully.");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             LOGGER.error("Interrupted while shutting down recording scheduler.", e);
-        } catch (IOException e) {
-            LOGGER.error("Failed to close recording output file.", e);
         }
+        for (RandomAccessFile file : userAudioFiles.values()) {
+            try {
+                file.close();
+            } catch (IOException e) {
+                LOGGER.error("Failed to close a user PCM file.", e);
+            }
+        }
+        LOGGER.info("RecordingAudioHandler streams finalized. {} participants recorded across {} frames.", userAudioFiles.size(), frameCounter.get());
+    }
+
+    public long getFinalDurationMs() {
+        return frameCounter.get() * FRAME_DURATION_MS;
     }
 }

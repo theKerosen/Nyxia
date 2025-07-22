@@ -34,13 +34,12 @@ public interface Guild extends DiscordEntity {
      */
     CompletableFuture<User> retrieveOwner(NekoffeeClient client);
 
-
     /**
      * @return Uma lista de todos os cargos neste servidor.
      *         Pode retornar uma lista vazia ou necessitar de uma chamada à API para popular.
      *         Para uma busca garantida, use retrieveRoles(NekoffeeClient).
      */
-    List<Role> getRoles(); // Este pode vir populado diretamente do GET /guilds/{id}
+    List<Role> getRoles(); 
 
     /**
      * Busca (ou atualiza) a lista de cargos deste servidor via API.
@@ -49,6 +48,6 @@ public interface Guild extends DiscordEntity {
      */
     CompletableFuture<List<Role>> retrieveRoles(NekoffeeClient client);
 
-    List<VoiceState> getVoiceStates(); // Este método agora deve resolver
+    List<VoiceState> getVoiceStates(); 
 
 }

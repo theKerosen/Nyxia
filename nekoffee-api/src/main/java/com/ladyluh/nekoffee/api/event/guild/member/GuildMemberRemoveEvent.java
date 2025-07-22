@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.api.event.guild.member;
 
-
 import com.ladyluh.nekoffee.api.NekoffeeClient;
 import com.ladyluh.nekoffee.api.entities.Guild;
 import com.ladyluh.nekoffee.api.entities.User;

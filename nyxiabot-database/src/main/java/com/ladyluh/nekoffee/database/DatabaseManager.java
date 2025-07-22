@@ -90,7 +90,8 @@ public class DatabaseManager {
                     temp_channel_category_id TEXT,
                     temp_channel_name_prefix TEXT,
                     default_temp_channel_user_limit INTEGER,
-                    default_temp_channel_lock INTEGER
+                    default_temp_channel_lock INTEGER,
+                     join_sound_id TEXT
                 );""";
 
         try (Connection conn = connect(); Statement stmt = conn.createStatement()) {
@@ -102,6 +103,18 @@ public class DatabaseManager {
             LOGGER.info("Tabela user_channel_preferences verificada/criada.");
             stmt.execute(createGuildConfigsTableSQL);
             LOGGER.info("Tabela 'guild_configs' verificada/criada.");
+
+            try {
+                stmt.execute("ALTER TABLE guild_configs ADD COLUMN join_sound_id TEXT;");
+                LOGGER.info("Coluna 'join_sound_id' adicionada à tabela 'guild_configs'.");
+            } catch (SQLException e) {
+                if (e.getMessage().contains("duplicate column name")) {
+                    LOGGER.trace("Coluna 'join_sound_id' já existe em 'guild_configs'.");
+                } else {
+                    throw e;
+                }
+            }
+
         } catch (SQLException e) {
             LOGGER.error("Erro ao inicializar o banco de dados SQLite:", e);
         }
@@ -125,7 +138,8 @@ public class DatabaseManager {
                             rs.getString("temp_channel_category_id"),
                             rs.getString("temp_channel_name_prefix"),
                             rs.getObject("default_temp_channel_user_limit", Integer.class),
-                            rs.getObject("default_temp_channel_lock", Integer.class)
+                            rs.getObject("default_temp_channel_lock", Integer.class),
+                            rs.getString("join_sound_id")
                     ));
                 }
             } catch (SQLException e) {
@@ -142,8 +156,8 @@ public class DatabaseManager {
                     INSERT OR REPLACE INTO guild_configs (
                         guild_id, log_channel_id, welcome_channel_id, auto_assign_role_id,
                         recordings_channel_id, temp_hub_channel_id, temp_channel_category_id, temp_channel_name_prefix,
-                        default_temp_channel_user_limit, default_temp_channel_lock
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""";
+                        default_temp_channel_user_limit, default_temp_channel_lock, join_sound_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""; 
             try (Connection conn = connect();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 int i = 1;
@@ -168,6 +182,8 @@ public class DatabaseManager {
                     pstmt.setNull(i++, Types.INTEGER);
                 }
 
+                pstmt.setString(i++, config.joinSoundId);
+
                 pstmt.executeUpdate();
                 LOGGER.info("Configuração da Guild {} atualizada/inserida no DB.", config.guildId);
             } catch (SQLException e) {
@@ -176,7 +192,6 @@ public class DatabaseManager {
             }
         }, dbExecutor);
     }
-
 
     public CompletableFuture<UserXP> getUserXP(String guildId, String userId) {
         return CompletableFuture.supplyAsync(() -> {

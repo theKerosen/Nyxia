@@ -46,20 +46,15 @@ public class OpusEncoder implements AutoCloseable {
             return null;
         }
 
-
         ShortBuffer heapPcmBuffer = ByteBuffer.wrap(pcmData)
                 .order(ByteOrder.LITTLE_ENDIAN)
                 .asShortBuffer();
 
-
         directPcmBuffer.clear();
-
 
         directPcmBuffer.put(heapPcmBuffer);
 
-
         directPcmBuffer.flip();
-
 
         ByteBuffer opusBuffer = ByteBuffer.allocateDirect(4096);
 

@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.database;
 
-
 public class GuildConfig {
     public String guildId;
     public String logChannelId;
@@ -12,8 +11,9 @@ public class GuildConfig {
     public String tempChannelNamePrefix;
     public Integer defaultTempChannelUserLimit;
     public Integer defaultTempChannelLock;
+    public String joinSoundId; 
 
-    public GuildConfig(String guildId, String logChannelId, String welcomeChannelId, String autoAssignRoleId, String recordingsChannelId, String tempHubChannelId, String tempChannelCategoryId, String tempChannelNamePrefix, Integer defaultTempChannelUserLimit, Integer defaultTempChannelLock) {
+    public GuildConfig(String guildId, String logChannelId, String welcomeChannelId, String autoAssignRoleId, String recordingsChannelId, String tempHubChannelId, String tempChannelCategoryId, String tempChannelNamePrefix, Integer defaultTempChannelUserLimit, Integer defaultTempChannelLock, String joinSoundId) {
         this.guildId = guildId;
         this.logChannelId = logChannelId;
         this.welcomeChannelId = welcomeChannelId;
@@ -24,8 +24,8 @@ public class GuildConfig {
         this.tempChannelNamePrefix = tempChannelNamePrefix;
         this.defaultTempChannelUserLimit = defaultTempChannelUserLimit;
         this.defaultTempChannelLock = defaultTempChannelLock;
+        this.joinSoundId = joinSoundId; 
     }
-
 
     public GuildConfig(String guildId) {
         this.guildId = guildId;

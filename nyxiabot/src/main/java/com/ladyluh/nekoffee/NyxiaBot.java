@@ -41,11 +41,8 @@ public class NyxiaBot {
         this.voiceStateCacheManager = new VoiceStateCacheManager();
         JsonEngine jsonEngine = new JacksonJsonEngineImpl();
 
-
         this.xpRoleService = new XPRoleService(nekoffeeClient, config);
-
-        AudioRecordingService audioRecordingService = new AudioRecordingService(nekoffeeClient, jsonEngine);
-
+        AudioRecordingService audioRecordingService = new AudioRecordingService(nekoffeeClient, jsonEngine, this.voiceStateCacheManager);
 
         this.commandManager = new CommandManager(nekoffeeClient, config, databaseManager, audioRecordingService, voiceStateCacheManager);
         this.statusRotator = Executors.newSingleThreadScheduledExecutor(r -> {

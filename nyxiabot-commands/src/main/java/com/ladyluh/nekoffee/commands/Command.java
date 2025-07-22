@@ -14,6 +14,5 @@ public interface Command {
 
     boolean isGuildOnly();
 
-
     CompletableFuture<Void> execute(CommandContext ctx);
 }

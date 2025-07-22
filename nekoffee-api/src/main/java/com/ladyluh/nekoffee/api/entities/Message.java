@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.api.entities;
 
-
 public interface Message extends DiscordEntity {
     String getGuildId();
 
@@ -18,6 +17,5 @@ public interface Message extends DiscordEntity {
      * @return O ID do canal onde esta mensagem foi enviada.
      */
     String getChannelId();
-
 
 }

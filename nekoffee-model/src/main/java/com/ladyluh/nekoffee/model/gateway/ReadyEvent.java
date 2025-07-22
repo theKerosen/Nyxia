@@ -4,13 +4,11 @@ import com.ladyluh.nekoffee.api.NekoffeeClient;
 import com.ladyluh.nekoffee.api.entities.User;
 import com.ladyluh.nekoffee.api.event.AbstractEvent;
 
-
 public class ReadyEvent extends AbstractEvent {
     private final User selfUser;
     private final String sessionId;
     private final String resumeGatewayUrl;
     private final int gatewayVersion;
-
 
     public ReadyEvent(NekoffeeClient nekoffeeClient, User selfUser, String sessionId, String resumeGatewayUrl, int gatewayVersion /*, List<ReadyPayloadData.UnavailableGuild> unavailableGuilds */) {
         super(nekoffeeClient);
@@ -36,6 +34,5 @@ public class ReadyEvent extends AbstractEvent {
     public int getGatewayVersion() {
         return gatewayVersion;
     }
-
 
 }

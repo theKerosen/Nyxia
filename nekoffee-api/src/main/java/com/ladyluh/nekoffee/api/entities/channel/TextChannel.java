@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.api.entities.channel;
 
-
 public interface TextChannel extends Channel {
 
     /**
@@ -12,6 +11,5 @@ public interface TextChannel extends Channel {
      * @return {@code true} se este canal estiver marcado como NSFW (Not Safe For Work).
      */
     boolean isNsfw();
-
 
 }

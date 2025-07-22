@@ -19,6 +19,11 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>org.imgscalr</groupId>
+            <artifactId>imgscalr-lib</artifactId>
+            <version>4.2</version>
+        </dependency>
+        <dependency>
             <groupId>com.ladyluh.nekoffee</groupId>
             <artifactId>nekoffee-core</artifactId>
             <version>${project.version}</version>

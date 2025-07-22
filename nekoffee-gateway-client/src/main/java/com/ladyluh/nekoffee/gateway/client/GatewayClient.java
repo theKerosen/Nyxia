@@ -51,5 +51,12 @@ public interface GatewayClient {
      */
     void sendPresenceUpdate(Object payloadData);
 
+    /**
+     * Plays a sound from the server's soundboard.
+     * @param guildId The ID of the guild.
+     * @param channelId The ID of the voice channel the bot is in.
+     * @param soundId The ID of the soundboard sound.
+     */
+    void playSoundboardSound(String guildId, String channelId, String soundId);
 
 }

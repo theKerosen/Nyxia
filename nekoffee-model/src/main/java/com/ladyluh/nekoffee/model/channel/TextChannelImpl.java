@@ -11,7 +11,6 @@ public class TextChannelImpl extends AbstractChannelImpl implements TextChannel 
     @JsonProperty("nsfw")
     private boolean nsfw;
 
-
     public TextChannelImpl() {
     }
 

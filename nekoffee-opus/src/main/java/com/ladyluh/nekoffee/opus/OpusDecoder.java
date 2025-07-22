@@ -15,7 +15,6 @@ public class OpusDecoder implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(OpusDecoder.class);
     private final Pointer decoder;
     private final ShortBuffer decodedBuffer;
-    private boolean closed = false;
 
     public OpusDecoder() {
         IntBuffer error = IntBuffer.allocate(1);
@@ -27,48 +26,18 @@ public class OpusDecoder implements AutoCloseable {
         LOGGER.debug("Opus decoder created successfully.");
     }
 
-    /**
-     * Decodes a real Opus packet into PCM data.
-     *
-     * @param opusData The received Opus packet.
-     * @return The decoded PCM audio, or null on failure.
-     */
-    public synchronized byte[] decodePacket(byte[] opusData) {
-        if (closed || opusData == null) {
-            return null;
+    public synchronized byte[] decode(byte[] opusData) {
+        if (decoder == null) {
+            throw new IllegalStateException("Decoder is already closed.");
         }
-
         int result = Opus.INSTANCE.opus_decode(decoder, opusData, opusData.length, decodedBuffer, MAX_FRAME_SIZE, 0);
         if (result < 0) {
             LOGGER.error("Opus native decode failed with error: {} ({})", result, Opus.INSTANCE.opus_strerror(result));
             return null;
         }
-        return convertShortBufferToBytes(result);
-    }
 
-    /**
-     * Uses Opus Packet Loss Concealment (PLC) to generate a "best guess" for a lost frame.
-     *
-     * @return The concealed PCM audio frame, or null on failure.
-     */
-    public synchronized byte[] decodeWithPLC() {
-        if (closed) {
-            return null;
-        }
-
-
-        int result = Opus.INSTANCE.opus_decode(decoder, null, 0, decodedBuffer, FRAME_SIZE, 0);
-        if (result < 0) {
-            LOGGER.error("Opus PLC decode failed with error: {} ({})", result, Opus.INSTANCE.opus_strerror(result));
-            return null;
-        }
-        return convertShortBufferToBytes(result);
-    }
-
-    private byte[] convertShortBufferToBytes(int samplesPerChannel) {
-
-        byte[] pcmData = new byte[samplesPerChannel * CHANNELS * 2];
-        for (int i = 0; i < samplesPerChannel * CHANNELS; i++) {
+        byte[] pcmData = new byte[result * CHANNELS * 2];
+        for (int i = 0; i < result * CHANNELS; i++) {
             short s = decodedBuffer.get(i);
             pcmData[i * 2] = (byte) s;
             pcmData[i * 2 + 1] = (byte) (s >> 8);
@@ -78,9 +47,8 @@ public class OpusDecoder implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (!closed) {
+        if (decoder != null) {
             Opus.INSTANCE.opus_decoder_destroy(decoder);
-            closed = true;
             LOGGER.debug("Opus decoder destroyed.");
         }
     }

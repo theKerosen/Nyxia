@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.api.event.voice;
 
-
 import com.ladyluh.nekoffee.api.NekoffeeClient;
 import com.ladyluh.nekoffee.api.entities.Guild;
 import com.ladyluh.nekoffee.api.entities.Member;
@@ -10,16 +9,13 @@ import com.ladyluh.nekoffee.api.event.AbstractEvent;
 
 import java.util.concurrent.CompletableFuture;
 
-
 public class VoiceStateUpdateEvent extends AbstractEvent {
-
 
     private final String guildId;
     private final String channelId;
     private final String userId;
     private final boolean isMuted;
     private final boolean isDeafened;
-
 
     public VoiceStateUpdateEvent(NekoffeeClient nekoffeeClient,
                                  String guildId, String channelId, String userId,
@@ -53,7 +49,6 @@ public class VoiceStateUpdateEvent extends AbstractEvent {
         return isDeafened;
     }
 
-
     public CompletableFuture<User> retrieveUser() {
         return nekoffeeClient.getUserById(userId);
     }
@@ -78,7 +73,6 @@ public class VoiceStateUpdateEvent extends AbstractEvent {
     }
 
     public boolean hasLeftChannel() {
-
 
         return channelId == null;
     }

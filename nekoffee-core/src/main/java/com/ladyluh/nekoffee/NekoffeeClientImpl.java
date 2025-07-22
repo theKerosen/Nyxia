@@ -65,7 +65,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
         this.gatewayClient = new OkHttpWebSocketGatewayClientImpl(this.sharedOkHttpClient, this.jsonEngine, this);
     }
 
-
     @Override
     public CompletableFuture<Void> login(String token, Collection<GatewayIntent> intents) {
         if (loggedIn) {
@@ -108,7 +107,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
                     "online"
             );
 
-
             gatewayClient.sendPresenceUpdate(presence);
 
         } catch (IllegalArgumentException e) {
@@ -116,7 +114,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
             LOGGER.error("Failed to set activity due to invalid arguments: {}", e.getMessage());
         }
     }
-
 
     @Override
     public void shutdown() {
@@ -207,7 +204,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
         this.leaveVoiceChannel(guildId);
     }
 
-
     @Override
     public CompletableFuture<Void> leaveVoiceChannel(String guildId) {
         if (!loggedIn) {
@@ -228,8 +224,20 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
             pending.completeExceptionally(new NekoffeeException("Voice connection was cancelled by leaving the channel."));
         }
 
-
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void playSoundboardSound(String guildId, String channelId, String soundId) {
+        if (!loggedIn) {
+            LOGGER.warn("Cannot play soundboard sound, client is not logged in.");
+            return;
+        }
+        Objects.requireNonNull(guildId, "Guild ID cannot be null");
+        Objects.requireNonNull(channelId, "Channel ID cannot be null");
+        Objects.requireNonNull(soundId, "Sound ID cannot be null");
+
+        gatewayClient.playSoundboardSound(guildId, channelId, soundId);
     }
 
     @Override
@@ -264,7 +272,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
                 });
     }
 
-
     public CompletableFuture<Void> editChannelPermissions(String channelId, String targetId, TargetType type,
                                                           Collection<Permission> allow, Collection<Permission> deny) {
 
@@ -272,7 +279,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
         long denyBitmask = Permission.calculateBitmask(deny);
         return editChannelPermissions(channelId, targetId, type, allowBitmask, denyBitmask);
     }
-
 
     @Override
     public CompletableFuture<Void> editChannelPermissions(String channelId, String targetId, TargetType type,
@@ -354,7 +360,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
                 });
     }
 
-
     public CompletableFuture<Void> modifyGuildMemberVoiceChannel(String guildId, String userId, @Nullable String voiceChannelId) {
         if (!loggedIn) {
             return CompletableFuture.failedFuture(new NekoffeeException("Not logged in. Call login() first."));
@@ -362,12 +367,10 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
         Objects.requireNonNull(guildId, "Guild ID cannot be null");
         Objects.requireNonNull(userId, "User ID cannot be null");
 
-
         String url = DISCORD_API_BASE_URL + "/guilds/" + guildId + "/members/" + userId;
         ModifyMemberPayload payload = new ModifyMemberPayload(voiceChannelId);
         String jsonPayload = jsonEngine.toJsonString(payload);
         LOGGER.debug("Modifying guild member {} in {}. Setting voice channel to: {}", userId, guildId, voiceChannelId);
-
 
         return restClient.patch(url, jsonPayload, Collections.emptyMap())
                 .thenAccept(responseBody -> LOGGER.info("Successfully modified voice channel for member {} in guild {}.", userId, guildId))
@@ -487,7 +490,6 @@ public class NekoffeeClientImpl implements NekoffeeClient, EventDispatcher {
     public void removeEventListener(EventListener listener) {
         eventListeners.remove(Objects.requireNonNull(listener, "Listener cannot be null"));
     }
-
 
     @Override
     public CompletableFuture<User> getUserById(String userId) {

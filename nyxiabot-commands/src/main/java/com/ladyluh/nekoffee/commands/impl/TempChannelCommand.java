@@ -56,7 +56,6 @@ public class TempChannelCommand implements Command {
         String authorId = ctx.getAuthor().getId();
         String subCommand = ctx.getArgs().getFirst().toLowerCase();
 
-
         CompletableFuture<Optional<TemporaryChannelRecord>> tempChannelFuture = dbManager.getTemporaryChannelByOwner(guildId, authorId);
         CompletableFuture<Optional<UserChannelPreference>> prefsFuture = dbManager.getUserChannelPreference(guildId, authorId);
 
@@ -65,14 +64,12 @@ public class TempChannelCommand implements Command {
                     Optional<TemporaryChannelRecord> userTempChannelOpt = tempChannelFuture.join();
                     Optional<UserChannelPreference> userPrefsOpt = prefsFuture.join();
 
-
                     if ("limite".equals(subCommand) || "nome".equals(subCommand)) {
                         return handlePreferenceCommand(ctx, userTempChannelOpt, userPrefsOpt, subCommand);
                     }
                     if ("autoownage".equals(subCommand) || "ao".equals(subCommand)) {
                         return handleAutoOwnerCommand(ctx, userPrefsOpt);
                     }
-
 
                     if (userTempChannelOpt.isEmpty()) {
                         return ctx.reply("Você não possui um canal de voz temporário ativo para usar este comando.");
@@ -173,7 +170,6 @@ public class TempChannelCommand implements Command {
         boolean lock = "trancar".equals(subCommand);
         EnumSet<Permission> allowEveryone = lock ? EnumSet.noneOf(Permission.class) : EnumSet.of(Permission.CONNECT);
         EnumSet<Permission> denyEveryone = lock ? EnumSet.of(Permission.CONNECT) : EnumSet.noneOf(Permission.class);
-
 
         UserChannelPreference prefs = userPrefsOpt.orElse(new UserChannelPreference(guildId, authorId));
         prefs.defaultLocked = lock ? 1 : 0;

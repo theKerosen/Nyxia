@@ -1,6 +1,6 @@
 package com.ladyluh.nekoffee.api.event;
 
-@FunctionalInterface // Bom para lambdas
+@FunctionalInterface
 public interface EventListener {
     /**
      * Chamado quando um evento do Discord é recebido.

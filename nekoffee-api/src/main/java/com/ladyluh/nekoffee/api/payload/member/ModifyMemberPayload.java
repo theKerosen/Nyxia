@@ -9,7 +9,6 @@ public class ModifyMemberPayload {
     @JsonProperty("channel_id")
     private String channelId;
 
-
     public ModifyMemberPayload() {
     }
 

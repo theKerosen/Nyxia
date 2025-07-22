@@ -60,7 +60,6 @@ public class CommandManager {
             return;
         }
 
-
         CommandContext ctx = new CommandContext(client, config, dbManager, voiceStateCacheManager, event, commandName, args);
         LOGGER.info("Executando comando '{}' para o usuário '{}' com args: {}", command.getName(), ctx.getAuthor().getAsTag(), args);
 

@@ -22,7 +22,6 @@ public class ReadyPayloadData {
     @JsonProperty("resume_gateway_url")
     private String resumeGatewayUrl;
 
-
     public int getGatewayVersion() {
         return gatewayVersion;
     }
@@ -42,7 +41,6 @@ public class ReadyPayloadData {
     public String getResumeGatewayUrl() {
         return resumeGatewayUrl;
     }
-
 
     public static class UnavailableGuild {
         @JsonProperty("id")

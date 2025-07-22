@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.api.event.message;
 
-
 import com.ladyluh.nekoffee.api.NekoffeeClient;
 import com.ladyluh.nekoffee.api.event.AbstractEvent;
 

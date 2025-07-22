@@ -34,13 +34,11 @@ public class RoleImpl extends AbstractDiscordEntity implements Role {
     @JsonProperty("mentionable")
     private boolean mentionable;
 
-
     @JsonIgnore
     private String guildId;
 
     public RoleImpl() {
     }
-
 
     public void setGuildId(String guildId) {
         this.guildId = guildId;
@@ -108,7 +106,6 @@ public class RoleImpl extends AbstractDiscordEntity implements Role {
         }
         return client.getGuildById(guildId);
     }
-
 
     @Override
     public int compareTo(Role other) {

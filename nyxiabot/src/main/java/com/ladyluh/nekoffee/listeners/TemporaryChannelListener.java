@@ -43,7 +43,7 @@ public class TemporaryChannelListener implements EventListener {
     @Override
     public void onEvent(Event event) {
         if (event instanceof GuildCreateEvent gcEvent) {
-            // Populate the cache on startup
+            
             voiceStateCacheManager.onGuildCreate(gcEvent);
         } else if (event instanceof VoiceStateUpdateEvent vsEvent) {
             handleVoiceStateUpdate(vsEvent);
@@ -57,29 +57,20 @@ public class TemporaryChannelListener implements EventListener {
         String userId = event.getUserId();
         String newChannelId = event.getChannelId();
 
-        // **CRITICAL STEP 1: Get the state BEFORE the update.**
-        // We query the cache to find out where the user was before this event happened.
         String oldChannelId = voiceStateCacheManager.getUserVoiceChannelId(guildId, userId);
 
-        // **CRITICAL STEP 2: Update the cache immediately.**
-        // This ensures the cache is now in its "after" state for all subsequent logic.
         voiceStateCacheManager.onVoiceStateUpdate(event);
 
-        // If the channel didn't actually change, it was a mute/deafen/etc. event. Ignore it.
         if (Objects.equals(oldChannelId, newChannelId)) {
             return;
         }
 
         LOGGER.debug("Processing voice channel change for user {}: Old='{}', New='{}'", userId, oldChannelId, newChannelId);
 
-        // --- Handle LEAVING a channel ---
-        // If the user was in a channel before, check if it needs to be deleted or transferred.
         if (oldChannelId != null) {
             checkChannelOnUserLeave(guildId, oldChannelId, userId);
         }
 
-        // --- Handle JOINING a channel ---
-        // If the user is now in a new channel, check if it's the hub.
         if (newChannelId != null) {
             dbManager.getGuildConfig(guildId).thenAccept(configOpt -> {
                 String hubId = configOpt.map(cfg -> cfg.tempHubChannelId).orElse(null);
@@ -98,12 +89,12 @@ public class TemporaryChannelListener implements EventListener {
                 return;
             }
 
-            // Use computeIfAbsent to prevent creating multiple channels if events are rapid
+            
             userCreationAttempts.computeIfAbsent(userId, k -> {
                 LOGGER.info("User {} is in the Hub. Initiating temporary channel creation.", userId);
                 return createTemporaryChannelForUser(event, guildId, userId, guildConfig)
                         .whenComplete((channel, ex) -> {
-                            userCreationAttempts.remove(userId); // Always remove after attempt
+                            userCreationAttempts.remove(userId); 
                             if (ex != null) {
                                 LOGGER.error("Failed to create/move to temp channel for user {}.", userId, ex);
                                 if (channel != null && channel.getId() != null && !channel.getId().isEmpty()) {
@@ -128,7 +119,7 @@ public class TemporaryChannelListener implements EventListener {
                     .thenCompose(prefsOpt -> {
                         UserChannelPreference prefs = prefsOpt.orElse(new UserChannelPreference(guildId, userId));
 
-                        // Determine final settings based on user prefs > guild defaults > global defaults
+                        
                         Integer finalUserLimit = prefs.preferredUserLimit != null ? prefs.preferredUserLimit : guildConfig.defaultTempChannelUserLimit;
                         String finalNameTemplate = prefs.preferredName != null && !prefs.preferredName.isEmpty() ? prefs.preferredName : guildConfig.tempChannelNamePrefix;
                         Integer finalDefaultLocked = prefs.defaultLocked != null ? prefs.defaultLocked : guildConfig.defaultTempChannelLock;
@@ -146,14 +137,14 @@ public class TemporaryChannelListener implements EventListener {
                             payload.setUserLimit(finalUserLimit == 0 ? null : finalUserLimit);
                         }
 
-                        // 1. Create Channel
+                        
                         return client.createGuildChannel(guildId, payload)
                                 .thenCompose(createdChannel -> {
-                                    // 2. Add to DB
+                                    
                                     return dbManager.addTemporaryChannel(createdChannel.getId(), guildId, userId)
-                                            .thenCompose(v -> applyChannelPermissions(createdChannel, userId, finalDefaultLocked)) // 3. Set Permissions
-                                            .thenCompose(v -> client.modifyGuildMemberVoiceChannel(guildId, userId, createdChannel.getId())) // 4. Move Member
-                                            .thenApply(v -> createdChannel); // Return the created channel
+                                            .thenCompose(v -> applyChannelPermissions(createdChannel, userId, finalDefaultLocked)) 
+                                            .thenCompose(v -> client.modifyGuildMemberVoiceChannel(guildId, userId, createdChannel.getId())) 
+                                            .thenApply(v -> createdChannel); 
                                 });
                     });
         });
@@ -181,17 +172,17 @@ public class TemporaryChannelListener implements EventListener {
     private void checkChannelOnUserLeave(String guildId, String channelId, String userIdWhoLeft) {
         dbManager.getTemporaryChannel(channelId).thenAccept(tempChannelOpt -> {
             if (tempChannelOpt.isEmpty()) {
-                return; // Not a managed temp channel, do nothing.
+                return; 
             }
 
-            // The cache is already updated, so isVoiceChannelEmpty is reliable now.
+            
             if (voiceStateCacheManager.isVoiceChannelEmpty(guildId, channelId)) {
                 LOGGER.info("Temp channel {} is now empty. Deleting.", channelId);
                 deleteTemporaryChannel(channelId);
                 return;
             }
 
-            // If the user who left was the owner, we need to decide what to do.
+            
             if (tempChannelOpt.get().ownerUserId.equals(userIdWhoLeft)) {
                 handleOwnerLeave(guildId, tempChannelOpt.get());
             }
@@ -238,7 +229,7 @@ public class TemporaryChannelListener implements EventListener {
                                         .thenCompose(gcfgOpt -> {
                                             GuildConfig guildConfig = gcfgOpt.orElse(new GuildConfig(guildId));
 
-                                            // Modify channel name and limit based on new owner's prefs
+                                            
                                             ChannelModifyPayload payload = new ChannelModifyPayload();
                                             String nameTemplate = prefs.preferredName != null && !prefs.preferredName.isEmpty() ? prefs.preferredName : guildConfig.tempChannelNamePrefix;
                                             String finalName = (nameTemplate != null ? nameTemplate : "Sala de %username%").replace("%username%", newOwnerMember.getEffectiveName());
@@ -250,7 +241,7 @@ public class TemporaryChannelListener implements EventListener {
 
                                             return client.modifyChannel(channelId, payload)
                                                     .thenCompose(v2 -> client.getChannelById(channelId))
-                                                    .thenCompose(channel -> applyChannelPermissions(channel, newOwnerId, prefs.defaultLocked)); // Re-apply permissions for new owner
+                                                    .thenCompose(channel -> applyChannelPermissions(channel, newOwnerId, prefs.defaultLocked)); 
                                         });
                             });
                 })

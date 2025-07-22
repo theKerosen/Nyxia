@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentSkipListSet;
 public class VoiceStateCacheManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(VoiceStateCacheManager.class);
 
-
     public final ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentSkipListSet<String>>> guildVoiceChannelMembers;
 
     public VoiceStateCacheManager() {
@@ -32,7 +31,6 @@ public class VoiceStateCacheManager {
 
         ConcurrentHashMap<String, ConcurrentSkipListSet<String>> guildChannelsMap =
                 guildVoiceChannelMembers.computeIfAbsent(guildId, k -> new ConcurrentHashMap<>());
-
 
         guildChannelsMap.clear();
 
@@ -60,7 +58,6 @@ public class VoiceStateCacheManager {
         ConcurrentHashMap<String, ConcurrentSkipListSet<String>> guildChannelsMap =
                 guildVoiceChannelMembers.computeIfAbsent(guildId, k -> new ConcurrentHashMap<>());
 
-
         guildChannelsMap.forEach((channelIdInMap, usersInChannel) -> {
             if (usersInChannel.remove(userId)) {
                 LOGGER.debug("Cache (update): Usuário {} removido do canal antigo {}.", userId, channelIdInMap);
@@ -70,7 +67,6 @@ public class VoiceStateCacheManager {
                 }
             }
         });
-
 
         if (newChannelId != null) {
             guildChannelsMap.computeIfAbsent(newChannelId, k -> new ConcurrentSkipListSet<>()).add(userId);

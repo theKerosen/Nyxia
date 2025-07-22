@@ -11,7 +11,6 @@ public class EmbedFooter {
     @JsonProperty("icon_url")
     public String iconUrl;
 
-
     public EmbedFooter(String text, String iconUrl) {
         this.text = text;
         this.iconUrl = iconUrl;

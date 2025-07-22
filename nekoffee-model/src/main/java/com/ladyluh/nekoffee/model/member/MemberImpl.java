@@ -38,7 +38,6 @@ public class MemberImpl extends AbstractDiscordEntity implements Member {
     @JsonProperty("guild_id")
     private String guildId;
 
-
     @JsonIgnore
     private NekoffeeClient nekoffeeClient;
 
@@ -176,7 +175,6 @@ public class MemberImpl extends AbstractDiscordEntity implements Member {
                         LOGGER.warn("Cargo @everyone não encontrado para guild {}. Permissões base podem estar incorretas.", guildId);
                     }
 
-
                     for (String roleId : roleIds) {
                         Optional<Role> memberRoleOpt = allGuildRoles.stream()
                                 .filter(role -> role.getId().equals(roleId))
@@ -185,7 +183,6 @@ public class MemberImpl extends AbstractDiscordEntity implements Member {
                             calculatedPermissions |= memberRoleOpt.get().getPermissionsRaw();
                         }
                     }
-
 
                     if ((calculatedPermissions & Permission.ADMINISTRATOR.getRawValue()) == Permission.ADMINISTRATOR.getRawValue()) {
                         return Permission.ADMINISTRATOR.getRawValue();

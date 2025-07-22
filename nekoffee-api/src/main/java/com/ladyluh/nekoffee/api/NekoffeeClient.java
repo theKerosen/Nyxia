@@ -71,6 +71,16 @@ public interface NekoffeeClient {
     CompletableFuture<Message> sendMessage(String channelId, MultipartBody body);
 
     /**
+     * Plays a sound from the server's soundboard in the specified voice channel.
+     * The bot must already be in this voice channel.
+     *
+     * @param guildId   The ID of the guild.
+     * @param channelId The ID of the voice channel the bot is currently in.
+     * @param soundId   The ID of the soundboard sound to play.
+     */
+    void playSoundboardSound(String guildId, String channelId, String soundId);
+
+    /**
      * Attempts to join a voice channel.
      *
      * @param guildId   The ID of the guild where the voice channel is located.
@@ -102,7 +112,6 @@ public interface NekoffeeClient {
         }
         setActivity(type, name, null);
     }
-
 
     /**
      * FIX: Add an ActivityType enum to make setting statuses type-safe.

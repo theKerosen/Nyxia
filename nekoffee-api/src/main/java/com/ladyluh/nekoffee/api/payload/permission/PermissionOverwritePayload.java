@@ -22,7 +22,6 @@ public class PermissionOverwritePayload {
         this.deny = denyBitmask;
     }
 
-
     public int getType() {
         return type;
     }

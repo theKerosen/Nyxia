@@ -46,31 +46,28 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
 
     private final OkHttpClient httpClient;
     private final JsonEngine jsonEngine;
+    private final EventDispatcher eventDispatcher;
+
     private final AtomicInteger sequence = new AtomicInteger(-1);
     private final AtomicBoolean receivedHeartbeatAck = new AtomicBoolean(true);
-    private final EventDispatcher eventDispatcher;
     private final AtomicReference<GatewayState> state = new AtomicReference<>(GatewayState.DISCONNECTED);
+
     private WebSocket webSocket;
     private String botToken;
     private int intentsBitmask;
     private ScheduledExecutorService heartbeatExecutor;
     private ScheduledFuture<?> heartbeatTask;
-    private String sessionId;
-    private CompletableFuture<Void> connectionFuture;
 
+    private String sessionId;
+    private String resumeGatewayUrl;
+
+    private CompletableFuture<Void> connectionFuture;
 
     public OkHttpWebSocketGatewayClientImpl(OkHttpClient httpClient, JsonEngine jsonEngine, EventDispatcher eventDispatcher) {
         this.httpClient = Objects.requireNonNull(httpClient, "OkHttpClient cannot be null");
         this.jsonEngine = Objects.requireNonNull(jsonEngine, "JsonEngine cannot be null");
         this.eventDispatcher = Objects.requireNonNull(eventDispatcher, "EventDispatcher cannot be null");
-    }
-
-    public String getSessionId() {
-        return sessionId;
-    }
-
-    public void setSessionId(String sessionId) {
-        this.sessionId = sessionId;
+        this.resumeGatewayUrl = "wss://gateway.discord.gg";
     }
 
     @Override
@@ -90,40 +87,60 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
             return connectionFuture != null ? connectionFuture : CompletableFuture.failedFuture(new IllegalStateException("Already connected or connecting."));
         }
         if (botToken == null) return CompletableFuture.failedFuture(new IllegalStateException("Bot token not set."));
+
         state.set(GatewayState.CONNECTING);
-        connectionFuture = new CompletableFuture<>();
+        if (connectionFuture == null || connectionFuture.isDone()) {
+            connectionFuture = new CompletableFuture<>();
+        }
+
         LOGGER.info("Attempting to connect to Discord Gateway...");
-        CompletableFuture.supplyAsync(this::getGatewayUrlFromRest)
-                .thenAccept(this::establishWebSocketConnection)
-                .exceptionally(ex -> {
-                    LOGGER.error("Failed to obtain Gateway URL or establish connection", ex);
-                    state.set(GatewayState.DISCONNECTED);
-                    if (connectionFuture != null && !connectionFuture.isDone()) {
-                        connectionFuture.completeExceptionally(ex);
-                    }
-                    return null;
-                });
+        establishWebSocketConnection();
         return connectionFuture;
     }
 
-    private String getGatewayUrlFromRest() {
-        LOGGER.warn("Using default Gateway URL. Production bots should fetch from /gateway/bot endpoint.");
-        return "wss://gateway.discord.gg";
-    }
-
-
-    private void establishWebSocketConnection(String baseUrl) {
-        if (state.get() != GatewayState.CONNECTING) {
+    private void establishWebSocketConnection() {
+        if (state.get() != GatewayState.CONNECTING && state.get() != GatewayState.RECONNECTING) {
             LOGGER.warn("Establish WebSocket called in invalid state: {}", state.get());
-            if (connectionFuture != null && !connectionFuture.isDone()) {
-                connectionFuture.completeExceptionally(new IllegalStateException("Invalid state for WebSocket connection: " + state.get()));
-            }
             return;
         }
-        String fullGatewayUrl = baseUrl + "/?v=" + GATEWAY_VERSION + "&encoding=" + ENCODING;
+
+        String url = (sessionId != null && resumeGatewayUrl != null) ? resumeGatewayUrl : "wss://gateway.discord.gg";
+        String fullGatewayUrl = url + "/?v=" + GATEWAY_VERSION + "&encoding=" + ENCODING;
+
         LOGGER.info("Connecting to WebSocket URL: {}", fullGatewayUrl);
         Request request = new Request.Builder().url(fullGatewayUrl).build();
         webSocket = httpClient.newWebSocket(request, new NekoffeeWebSocketListener());
+    }
+
+    private void attemptReconnect(boolean isResumable) {
+        if (!state.compareAndSet(GatewayState.CONNECTED, GatewayState.RECONNECTING) &&
+                !state.compareAndSet(GatewayState.DISCONNECTED, GatewayState.RECONNECTING)) {
+            LOGGER.warn("Could not start reconnect, client is already in state {}.", state.get());
+            return;
+        }
+
+        LOGGER.info("Attempting to reconnect... Resumable: {}", isResumable);
+        stopHeartbeat();
+        if (webSocket != null) {
+            webSocket.close(4000, "Reconnecting");
+            webSocket = null;
+        }
+
+        if (!isResumable) {
+            LOGGER.warn("Session is not resumable. A new session will be started.");
+            this.sessionId = null;
+            this.sequence.set(-1);
+            this.resumeGatewayUrl = "wss://gateway.discord.gg";
+        }
+
+        try {
+            TimeUnit.SECONDS.sleep(ThreadLocalRandom.current().nextInt(1, 6));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        state.set(GatewayState.CONNECTING);
+        establishWebSocketConnection();
     }
 
     @Override
@@ -151,14 +168,16 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
             heartbeatTask = null;
         }
         if (heartbeatExecutor != null) {
-            heartbeatExecutor.shutdownNow();
+            if (!heartbeatExecutor.isShutdown()) {
+                heartbeatExecutor.shutdownNow();
+            }
             heartbeatExecutor = null;
         }
     }
 
     @Override
     public void send(String jsonPayload) {
-        if (webSocket != null && (state.get() == GatewayState.CONNECTED || state.get() == GatewayState.IDENTIFYING || state.get() == GatewayState.RESUMING)) {
+        if (webSocket != null && state.get().isReadyToSend()) {
             webSocket.send(jsonPayload);
             return;
         }
@@ -182,10 +201,18 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         send(jsonEngine.toJsonString(payload));
     }
 
+    private void sendResume() {
+        LOGGER.info("Sending Resume payload for session ID: {}", sessionId);
+        state.set(GatewayState.RESUMING);
+        ResumePayload resumeData = new ResumePayload(this.botToken, this.sessionId, this.sequence.get());
+        GatewaySendPayload payload = new GatewaySendPayload(6, resumeData);
+        send(jsonEngine.toJsonString(payload));
+    }
+
     private void sendHeartbeat() {
         if (!receivedHeartbeatAck.get()) {
             LOGGER.warn("Did not receive Heartbeat ACK since last heartbeat. Reconnecting (Zombied Connection)...");
-            if (webSocket != null) webSocket.close(4000, "Zombied connection");
+            attemptReconnect(true);
             return;
         }
         receivedHeartbeatAck.set(false);
@@ -196,14 +223,12 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
     }
 
     private void startHeartbeat(int intervalMillis) {
-        if (heartbeatExecutor == null || heartbeatExecutor.isShutdown()) {
-            heartbeatExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "Nekoffee-Heartbeat-Thread");
-                t.setDaemon(true);
-                return t;
-            });
-        }
-        if (heartbeatTask != null) heartbeatTask.cancel(false);
+        stopHeartbeat();
+        heartbeatExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "Nekoffee-Heartbeat-Thread");
+            t.setDaemon(true);
+            return t;
+        });
         LOGGER.info("Starting heartbeat with interval: {}ms", intervalMillis);
         long initialDelay = (long) (intervalMillis * Math.random());
         heartbeatTask = heartbeatExecutor.scheduleAtFixedRate(this::sendHeartbeat, initialDelay, intervalMillis, TimeUnit.MILLISECONDS);
@@ -216,8 +241,22 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         send(jsonEngine.toJsonString(payload));
     }
 
+    @Override
+    public void playSoundboardSound(String guildId, String channelId, String soundId) {
+        VoiceStateUpdatePayload data = new VoiceStateUpdatePayload(guildId, channelId, false, false);
+        data.setSoundboardSoundId(soundId);
+        GatewaySendPayload payload = new GatewaySendPayload(4, data);
+        LOGGER.info("Sending play soundboard sound request for sound ID {}", soundId);
+        send(jsonEngine.toJsonString(payload));
+    }
 
-    private enum GatewayState {DISCONNECTED, CONNECTING, IDENTIFYING, CONNECTED, RESUMING, SHUTTING_DOWN}
+    private enum GatewayState {
+        DISCONNECTED, CONNECTING, RECONNECTING, IDENTIFYING, RESUMING, CONNECTED, SHUTTING_DOWN;
+
+        public boolean isReadyToSend() {
+            return this == CONNECTED || this == IDENTIFYING || this == RESUMING;
+        }
+    }
 
     public static class GatewayReceivePayload {
         @JsonProperty("op")
@@ -251,10 +290,6 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         @JsonProperty("url")
         public final String url;
 
-        public ActivitySendPayload(String name, int type) {
-            this(name, type, null);
-        }
-
         public ActivitySendPayload(String name, int type, @Nullable String url) {
             if (name == null || name.trim().isEmpty())
                 throw new IllegalArgumentException("Activity name cannot be null or empty.");
@@ -266,19 +301,10 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         }
     }
 
-    /**
-     * @param since **THE FINAL FIX IS HERE:** This annotation forces Jackson to always include the 'since' field in the JSON, even if its value is null. This is what Discord's parser requires.
-     */
     public record PresenceUpdateSendPayload(@JsonProperty("activities") List<ActivitySendPayload> activities,
                                             @JsonProperty("afk") boolean afk,
                                             @JsonProperty("since") @JsonInclude(JsonInclude.Include.ALWAYS) Long since,
                                             @JsonProperty("status") String status) {
-        public PresenceUpdateSendPayload(List<ActivitySendPayload> activities, boolean afk, Long since, String status) {
-            this.activities = activities;
-            this.afk = afk;
-            this.since = since;
-            this.status = status;
-        }
     }
 
     private static class HelloPayload {
@@ -314,27 +340,40 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         public void onMessage(@NotNull WebSocket ws, @NotNull String text) {
             LOGGER.trace("GATEWAY RECV <- {}", text);
             try {
-                GatewayReceivePayload genericPayloadWrapper = jsonEngine.fromJsonString(text, GatewayReceivePayload.class);
-                if (genericPayloadWrapper.s != null) sequence.set(genericPayloadWrapper.s);
+                GatewayReceivePayload payload = jsonEngine.fromJsonString(text, GatewayReceivePayload.class);
+                if (payload.s != null) sequence.set(payload.s);
 
-                switch (genericPayloadWrapper.op) {
-                    case 0 -> handleDispatch(genericPayloadWrapper.t, genericPayloadWrapper.d);
+                switch (payload.op) {
+                    case 0 -> handleDispatch(payload.t, payload.d);
                     case 1 -> {
                         LOGGER.debug("Gateway requested a heartbeat. Sending one now.");
                         sendHeartbeat();
                     }
+                    case 7 -> {
+                        LOGGER.warn("Received Opcode 7 (Reconnect). Attempting to reconnect and resume...");
+                        attemptReconnect(true);
+                    }
+                    case 9 -> {
+                        LOGGER.warn("Received Opcode 9 (Invalid Session). Resumable: {}", payload.d.asBoolean());
+                        attemptReconnect(payload.d.asBoolean());
+                    }
                     case 10 -> {
                         LOGGER.info("Received Hello from Gateway.");
                         receivedHeartbeatAck.set(true);
-                        HelloPayload helloData = jsonEngine.fromJsonString(genericPayloadWrapper.d.toString(), HelloPayload.class);
+                        HelloPayload helloData = jsonEngine.fromJsonString(payload.d.toString(), HelloPayload.class);
                         startHeartbeat(helloData.heartbeatInterval);
-                        sendIdentify();
+
+                        if (sessionId != null && (state.get() == GatewayState.CONNECTING || state.get() == GatewayState.RECONNECTING)) {
+                            sendResume();
+                        } else {
+                            sendIdentify();
+                        }
                     }
                     case 11 -> {
                         LOGGER.trace("Heartbeat ACK received.");
                         receivedHeartbeatAck.set(true);
                     }
-                    default -> LOGGER.warn("Received unhandled opcode: {}", genericPayloadWrapper.op);
+                    default -> LOGGER.warn("Received unhandled opcode: {}", payload.op);
                 }
             } catch (Exception e) {
                 LOGGER.error("Error processing message from Gateway: {}", text, e);
@@ -357,18 +396,24 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
                         LOGGER.info("Gateway READY received! Session ID: {}", readyData.getSessionId());
                         state.set(GatewayState.CONNECTED);
                         sessionId = readyData.getSessionId();
+                        resumeGatewayUrl = readyData.getResumeGatewayUrl();
                         if (connectionFuture != null && !connectionFuture.isDone()) {
                             connectionFuture.complete(null);
                         }
-                        event = new ReadyEvent(clientInstance, readyData.getSelfUser(), readyData.getSessionId(), readyData.getResumeGatewayUrl(), readyData.getGatewayVersion());
+                        event = new ReadyEvent(clientInstance, readyData.getSelfUser(), readyData.getSessionId(), resumeGatewayUrl, readyData.getGatewayVersion());
+                    }
+                    case "RESUMED" -> {
+                        LOGGER.info("Successfully resumed session!");
+                        state.set(GatewayState.CONNECTED);
+                        if (connectionFuture != null && !connectionFuture.isDone()) {
+                            connectionFuture.complete(null);
+                        }
                     }
                     case "MESSAGE_CREATE" -> {
-                        MessageImpl message = jsonEngine.fromJsonString(eventDataJson, MessageImpl.class);
-                        event = new MessageCreateEvent(clientInstance, message);
+                        event = new MessageCreateEvent(clientInstance, jsonEngine.fromJsonString(eventDataJson, MessageImpl.class));
                     }
                     case "MESSAGE_UPDATE" -> {
-                        MessageImpl updatedMessage = jsonEngine.fromJsonString(eventDataJson, MessageImpl.class);
-                        event = new MessageUpdateEvent(clientInstance, updatedMessage);
+                        event = new MessageUpdateEvent(clientInstance, jsonEngine.fromJsonString(eventDataJson, MessageImpl.class));
                     }
                     case "MESSAGE_DELETE" -> {
                         MessageDeletePayloadData deleteData = jsonEngine.fromJsonString(eventDataJson, MessageDeletePayloadData.class);
@@ -389,7 +434,6 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
                         MemberImpl memberAdded = jsonEngine.fromJsonString(eventDataJson, MemberImpl.class);
                         memberAdded.setNekoffeeClient(clientInstance);
                         event = new GuildMemberAddEvent(clientInstance, memberAdded);
-                        LOGGER.info("Dispatched GuildMemberAddEvent for user: {}", memberAdded.getUser() != null ? memberAdded.getUser().getAsTag() : memberAdded.getId());
                     }
                     case "GUILD_MEMBER_UPDATE" -> {
                         MemberImpl updatedMember = jsonEngine.fromJsonString(eventDataJson, MemberImpl.class);
@@ -399,22 +443,17 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
                     case "GUILD_MEMBER_REMOVE" -> {
                         GuildMemberRemovePayloadData removeData = jsonEngine.fromJsonString(eventDataJson, GuildMemberRemovePayloadData.class);
                         event = new GuildMemberRemoveEvent(clientInstance, removeData.getGuildId(), removeData.getUser());
-                        LOGGER.info("Dispatched GuildMemberRemoveEvent for user: {}", removeData.getUser() != null ? removeData.getUser().getAsTag() : "Unknown");
                     }
                     case "VOICE_STATE_UPDATE" -> {
                         VoiceStatePayloadData vsData = jsonEngine.fromJsonString(eventDataJson, VoiceStatePayloadData.class);
                         event = new VoiceStateUpdateEvent(clientInstance, vsData.getGuildId(), vsData.getChannelId(), vsData.getUserId(), vsData.isMute() || vsData.isSelfMute(), vsData.isDeaf() || vsData.isSelfDeaf());
                     }
-
                     case "VOICE_SERVER_UPDATE" -> {
                         JsonNode guildIdNode = eventDataNode.get("guild_id");
                         JsonNode tokenNode = eventDataNode.get("token");
                         JsonNode endpointNode = eventDataNode.get("endpoint");
-
                         if (guildIdNode != null && tokenNode != null && endpointNode != null) {
                             event = new VoiceServerUpdateEvent(clientInstance, guildIdNode.asText(), tokenNode.asText(), endpointNode.asText());
-                        } else {
-                            LOGGER.warn("Received VOICE_SERVER_UPDATE with incomplete data.");
                         }
                     }
                     default -> LOGGER.trace("Unhandled DISPATCH event type: {}", eventType);
@@ -440,38 +479,32 @@ public class OkHttpWebSocketGatewayClientImpl implements GatewayClient {
         @Override
         public void onClosed(@NotNull WebSocket ws, int code, @NotNull String reason) {
             LOGGER.warn("Gateway connection closed: {} - {}", code, reason);
-            boolean wasShuttingDown = state.getAndSet(GatewayState.DISCONNECTED) == GatewayState.SHUTTING_DOWN;
+            boolean wasShuttingDown = state.get() == GatewayState.SHUTTING_DOWN;
+            state.set(GatewayState.DISCONNECTED);
             stopHeartbeat();
+
             if (connectionFuture != null && !connectionFuture.isDone()) {
                 connectionFuture.completeExceptionally(new NekoffeeException("Gateway connection closed unexpectedly: " + code + " " + reason));
             }
+
+            boolean canResume = (code == 1001 || code < 4000 || code == 4008);
             if (!wasShuttingDown) {
-                LOGGER.info("Gateway disconnection detected, attempting to reconnect...");
-                try {
-                    TimeUnit.SECONDS.sleep(5);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                connect();
+                attemptReconnect(canResume);
             }
         }
 
         @Override
         public void onFailure(@NotNull WebSocket ws, @NotNull Throwable t, @Nullable Response response) {
             LOGGER.error("Gateway connection failure!", t);
-            boolean wasShuttingDown = state.getAndSet(GatewayState.DISCONNECTED) == GatewayState.SHUTTING_DOWN;
+            boolean wasShuttingDown = state.get() == GatewayState.SHUTTING_DOWN;
+            state.set(GatewayState.DISCONNECTED);
             stopHeartbeat();
+
             if (connectionFuture != null && !connectionFuture.isDone()) {
                 connectionFuture.completeExceptionally(t);
             }
             if (!wasShuttingDown) {
-                LOGGER.info("Gateway failure detected, attempting to reconnect...");
-                try {
-                    TimeUnit.SECONDS.sleep(5);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                connect();
+                attemptReconnect(true);
             }
         }
     }

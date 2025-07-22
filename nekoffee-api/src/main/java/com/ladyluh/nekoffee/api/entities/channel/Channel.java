@@ -18,7 +18,6 @@ public interface Channel extends DiscordEntity {
      */
     ChannelType getType();
 
-
     /**
      * @return The ID of the guild this channel belongs to. Will be null for DMs.
      */

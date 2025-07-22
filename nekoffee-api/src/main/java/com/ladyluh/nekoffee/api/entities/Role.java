@@ -59,7 +59,6 @@ public interface Role extends DiscordEntity, Comparable<Role> {
      */
     String getGuildId();
 
-
     /**
      * Retorna a Guild à qual este cargo pertence.
      *
@@ -67,6 +66,5 @@ public interface Role extends DiscordEntity, Comparable<Role> {
      * @return Um CompletableFuture contendo a Guild.
      */
     CompletableFuture<Guild> retrieveGuild(NekoffeeClient client);
-
 
 }

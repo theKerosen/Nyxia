@@ -38,7 +38,6 @@ public class EmbedSendPayload {
     @JsonProperty("fields")
     private List<EmbedField> fields;
 
-
     public String getTitle() {
         return title;
     }

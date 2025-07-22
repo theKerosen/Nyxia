@@ -104,7 +104,6 @@ public class XPCommand implements Command {
                             .thenApply(user -> user != null ? user.getAsTag() : "Usuário Desconhecido"))
                     .toList();
 
-
             return CompletableFuture.allOf(userNamesFutures.toArray(new CompletableFuture[0]))
                     .thenCompose(v -> {
                         for (int i = 0; i < topUsers.size(); i++) {
@@ -133,16 +132,16 @@ public class XPCommand implements Command {
         StringBuilder escapedText = new StringBuilder();
         for (char c : text.toCharArray()) {
             switch (c) {
-                case '*':   // Bold, Italic
-                case '_':   // Italic, Underline
-                case '~':   // Strikethrough
-                case '`':   // Inline code
-                case '|':   // Spoiler
-                case '[':   // Link
-                case ']':   // Link
-                case '(':   // Link
-                case ')':   // Link
-                case '\\':  // The escape character itself
+                case '*':   
+                case '_':   
+                case '~':   
+                case '`':   
+                case '|':   
+                case '[':   
+                case ']':   
+                case '(':   
+                case ')':   
+                case '\\':  
                     escapedText.append('\\');
                     escapedText.append(c);
                     break;

@@ -21,12 +21,10 @@ public class CreateGuildChannelPayload {
     @JsonProperty("user_limit")
     private Integer user_limit;
 
-
     public CreateGuildChannelPayload(String name, ChannelType type) {
         this.name = name;
         this.type = type.getId();
     }
-
 
     public String getName() {
         return name;

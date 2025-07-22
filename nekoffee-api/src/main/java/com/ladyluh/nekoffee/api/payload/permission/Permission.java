@@ -31,7 +31,6 @@ public enum Permission {
     USE_EXTERNAL_EMOJIS(1L << 18),
     VIEW_GUILD_INSIGHTS(1L << 19),
 
-
     CONNECT(1L << 20),
     SPEAK(1L << 21),
     MUTE_MEMBERS(1L << 22),

@@ -14,7 +14,6 @@ public class ConfigManager {
 
     public ConfigManager() throws Exception {
 
-
         try (InputStream input = getClass().getClassLoader().getResourceAsStream("config.properties")) {
             if (input == null) {
                 System.out.println("Aviso: config.properties não encontrado. Usando variáveis de ambiente.");
@@ -95,7 +94,6 @@ public class ConfigManager {
                 .map(String::trim)
                 .collect(Collectors.toList());
     }
-
 
     /**
      * Retorna um mapa imutável de Level -> Role ID para XP Roles.

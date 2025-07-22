@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.database;
 
-
 public class TemporaryChannelRecord {
     public String channelId;
     public String guildId;

@@ -12,7 +12,6 @@ public class MessageDeletePayloadData {
     @JsonProperty("guild_id")
     private String guildId;
 
-
     public String getId() {
         return id;
     }

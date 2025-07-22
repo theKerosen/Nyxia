@@ -65,7 +65,7 @@ public class ConfigCommand implements Command {
                         return ctx.reply("Não consegui verificar suas permissões neste servidor.");
                     }
                     return member.hasPermission(Permission.ADMINISTRATOR)
-                            .thenCompose(hasAdminPerm -> { // Usa thenCompose para o resultado do hasPermission
+                            .thenCompose(hasAdminPerm -> { 
                                 if (!hasAdminPerm) {
                                     return ctx.reply("Você não tem permissão para usar este comando. (Requer permissão de ADMINISTRADOR)");
                                 }
@@ -88,7 +88,6 @@ public class ConfigCommand implements Command {
                 });
     }
 
-
     private CompletableFuture<Void> showHelp(CommandContext ctx) {
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("⚙️ Ajuda do Comando Config")
@@ -104,7 +103,9 @@ public class ConfigCommand implements Command {
                                 `temp_channel_category`: Categoria para salas temporárias.
                                 `temp_channel_name_prefix`: Prefixo do nome de salas temporárias.
                                 `default_temp_channel_user_limit`: Limite padrão de usuários (0 para ilimitado).
-                                `default_temp_channel_lock`: Trancar salas temporárias por padrão (true/false).""", false)
+                                `default_temp_channel_lock`: Trancar salas temporárias por padrão (true/false).
+                                `join_sound_id`: ID do som da soundboard para tocar ao entrar em call.
+                                """, false)
                 .setTimestamp(OffsetDateTime.now());
         return ctx.getClient().sendMessage(ctx.getChannelId(), new MessageBuilder().addEmbed(embed).build()).thenAccept(v -> {
         });
@@ -113,7 +114,7 @@ public class ConfigCommand implements Command {
     private CompletableFuture<Void> showConfig(CommandContext ctx, List<String> args) {
         String guildId = ctx.getGuildId();
         return dbManager.getGuildConfig(guildId)
-                .thenCompose(configOpt -> { // Mudei para thenCompose para poder usar CompletableFuture
+                .thenCompose(configOpt -> { 
                     GuildConfig guildConfig = configOpt.orElse(new GuildConfig(guildId));
 
                     StringBuilder configText = new StringBuilder();
@@ -140,14 +141,13 @@ public class ConfigCommand implements Command {
                             .setFooter("Configure com !config set <key> <value>", ctx.getClient().getSelfUser().getEffectiveAvatarUrl())
                             .setTimestamp(OffsetDateTime.now());
 
-                    return ctx.getClient().sendMessage(ctx.getChannelId(), new MessageBuilder().addEmbed(embed).build()).thenApply(v -> null); // Mudei para thenApply(v -> null)
+                    return ctx.getClient().sendMessage(ctx.getChannelId(), new MessageBuilder().addEmbed(embed).build()).thenApply(v -> null); 
                 });
     }
 
     private String configFormat(Object value) {
         return value == null ? "Não definido" : String.valueOf(value);
     }
-
 
     private CompletableFuture<Void> setConfig(CommandContext ctx, List<String> args) {
         if (args.size() < 2) {
@@ -159,11 +159,11 @@ public class ConfigCommand implements Command {
         String guildId = ctx.getGuildId();
 
         return dbManager.getGuildConfig(guildId)
-                .thenCompose(configOpt -> { // Mudei para thenCompose
+                .thenCompose(configOpt -> { 
                     GuildConfig guildConfig = configOpt.orElse(new GuildConfig(guildId));
-                    Field targetField = null; // Reinicializar para cada tentativa de set
+                    Field targetField = null; 
 
-                    // Converter snake_case para camelCase para encontrar o campo no POJO
+                    
                     Pattern pattern = Pattern.compile("_([a-z])");
                     Matcher matcher = pattern.matcher(key);
                     StringBuffer sb = new StringBuffer();
@@ -176,16 +176,16 @@ public class ConfigCommand implements Command {
                     LOGGER.info("fieldName gerado: {}", fieldName);
                     LOGGER.info("key original: {}", key);
 
-                    String finalReplyMessage; // Mensagem de resposta final
+                    String finalReplyMessage; 
 
                     try {
                         targetField = GuildConfig.class.getDeclaredField(fieldName);
-                        targetField.setAccessible(true); // Para acessar campos privados
+                        targetField.setAccessible(true); 
 
                         Object valueToSet = null;
                         Class<?> fieldType = targetField.getType();
 
-                        // Limpeza de menções para IDs
+                        
                         String processedValue = rawValue;
                         if (rawValue.matches("<#[0-9]+>")) {
                             processedValue = rawValue.substring(2, rawValue.length() - 1);
@@ -195,9 +195,9 @@ public class ConfigCommand implements Command {
                             processedValue = rawValue.replaceAll("[<@!>]", "").replaceAll(">", "");
                         }
 
-                        // Mapeamento de String para tipos Java e validação
+                        
                         if (processedValue.isEmpty() || processedValue.equalsIgnoreCase("null")) {
-                            valueToSet = null; // Suporta limpar configs
+                            valueToSet = null; 
                         } else if (fieldType == String.class) {
                             valueToSet = processedValue;
                         } else if (fieldType == Integer.class || fieldType == int.class) {
@@ -207,7 +207,7 @@ public class ConfigCommand implements Command {
                             }
                             valueToSet = intValue;
                         } else if (fieldType == Boolean.class || fieldType == boolean.class) {
-                            // Aceita "true" ou "false". Outros valores lançam IllegalArgumentException
+                            
                             if (!processedValue.equalsIgnoreCase("true") && !processedValue.equalsIgnoreCase("false")) {
                                 throw new IllegalArgumentException("Valor deve ser 'true' ou 'false'.");
                             }
@@ -216,8 +216,8 @@ public class ConfigCommand implements Command {
                             throw new IllegalArgumentException("Tipo de valor para '" + key + "' não suportado.");
                         }
 
-                        // <<<<< AQUI ESTÁ A LINHA CRÍTICA QUE ESTAVA FALTANDO >>>>
-                        targetField.set(guildConfig, valueToSet); // Atribui o valor ao campo
+                        
+                        targetField.set(guildConfig, valueToSet); 
 
                         finalReplyMessage = "Configuração `" + key + "` definida para: `" + configFormat(valueToSet) + "`";
 
@@ -234,7 +234,7 @@ public class ConfigCommand implements Command {
                     }
 
                     return dbManager.updateGuildConfig(guildConfig)
-                            .thenCompose(v -> ctx.reply(finalReplyMessage)) // Usa finalReplyMessage aqui
+                            .thenCompose(v -> ctx.reply(finalReplyMessage)) 
                             .exceptionally(ex -> {
                                 LOGGER.error("Erro ao salvar configuração {}:{} para guild {}:", key, rawValue, guildId, ex);
                                 ctx.reply("Erro ao salvar a configuração. Verifique os logs.");

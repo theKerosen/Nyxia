@@ -32,10 +32,8 @@ public class GuildImpl extends AbstractDiscordEntity implements Guild {
     @JsonProperty("voice_states")
     private List<VoiceStateImpl> voiceStates = new ArrayList<>();
 
-
     public GuildImpl() {
     }
-
 
     @Override
     public String getName() {
@@ -69,7 +67,6 @@ public class GuildImpl extends AbstractDiscordEntity implements Guild {
         return client.getUserById(ownerId);
     }
 
-
     @Override
     public List<Role> getRoles() {
 
@@ -82,11 +79,9 @@ public class GuildImpl extends AbstractDiscordEntity implements Guild {
             return CompletableFuture.failedFuture(new IllegalStateException("NekoffeeClient não disponível."));
         }
 
-
         return client.getGuildRoles(getId())
                 .thenApply(retrievedRoles -> retrievedRoles);
     }
-
 
     @Override
     public String toString() {

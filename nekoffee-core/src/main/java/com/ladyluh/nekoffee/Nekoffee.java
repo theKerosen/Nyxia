@@ -22,10 +22,8 @@ public final class Nekoffee {
      */
     public static NekoffeeClient createDefault() {
 
-
         JsonEngine jsonEngine = new JacksonJsonEngineImpl();
         RestClient restClient = new OkHttpRestClientImpl();
-
 
         NekoffeeClientImpl clientImpl = new NekoffeeClientImpl(restClient, jsonEngine, sharedOkHttpClient);
         return new NekoffeeClientImpl(restClient, jsonEngine, sharedOkHttpClient);

@@ -33,7 +33,6 @@ public class VoiceStateImpl implements VoiceState {
     public VoiceStateImpl() {
     }
 
-
     @Override
     public String getGuildId() {
         return guildId;
@@ -93,7 +92,6 @@ public class VoiceStateImpl implements VoiceState {
     public boolean isSuppress() {
         return suppress;
     }
-
 
     public void setGuildId(String guildId) {
         this.guildId = guildId;

@@ -38,12 +38,12 @@ public class LogEventListener implements EventListener {
 
     private void handleMessageUpdate(MessageUpdateEvent event) {
         String guildId = event.getMessage().getGuildId();
-        if (guildId == null) return; // Só logar em guilds
+        if (guildId == null) return; 
 
         dbManager.getGuildConfig(guildId)
                 .thenAccept(configOpt -> {
                     GuildConfig guildConfig = configOpt.orElse(new GuildConfig(guildId));
-                    String logChannelId = guildConfig.logChannelId; // Pega da config da guild
+                    String logChannelId = guildConfig.logChannelId; 
 
                     if (logChannelId == null || logChannelId.isEmpty()) {
                         LOGGER.trace("Log channel ID não configurado para guild {}. Log de MessageUpdate pulado.", guildId);
@@ -91,7 +91,7 @@ public class LogEventListener implements EventListener {
 
     private void handleMessageDelete(MessageDeleteEvent event) {
         String guildId = event.getGuildId();
-        if (guildId == null) return; // Só logar em guilds
+        if (guildId == null) return; 
 
         dbManager.getGuildConfig(guildId)
                 .thenAccept(configOpt -> {
@@ -110,7 +110,7 @@ public class LogEventListener implements EventListener {
                             .addField("ID da Mensagem", "`" + event.getMessageId() + "`", false)
                             .setTimestamp(OffsetDateTime.now());
 
-                    logEmbed.addField("Servidor ID", "`" + guildId + "`", true); // Já sabemos o guildId
+                    logEmbed.addField("Servidor ID", "`" + guildId + "`", true); 
 
                     client.sendMessage(logChannelId, new MessageBuilder().addEmbed(logEmbed).build())
                             .exceptionally(ex -> {

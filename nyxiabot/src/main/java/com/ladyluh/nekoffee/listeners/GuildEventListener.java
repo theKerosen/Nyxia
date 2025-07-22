@@ -44,7 +44,6 @@ public class GuildEventListener implements EventListener {
         LOGGER.info("Session ID: {}, Resume URL: {}", event.getSessionId(), event.getResumeGatewayUrl());
     }
 
-
     private void handleGuildMemberAdd(GuildMemberAddEvent event) {
         Member newMember = event.getMember();
         String guildId = event.getGuildId();
@@ -53,7 +52,6 @@ public class GuildEventListener implements EventListener {
             LOGGER.warn("GuildMemberAddEvent sem guildId para membro {}. Ignorando.", newMember.getId());
             return;
         }
-
 
         dbManager.getGuildConfig(guildId)
                 .thenAccept(configOpt -> {

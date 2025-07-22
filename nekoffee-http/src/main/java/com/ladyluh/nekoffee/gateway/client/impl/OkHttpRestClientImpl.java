@@ -27,7 +27,6 @@ public class OkHttpRestClientImpl implements RestClient {
                 return t;
             });
 
-
     public OkHttpRestClientImpl() {
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
@@ -63,12 +62,11 @@ public class OkHttpRestClientImpl implements RestClient {
     public CompletableFuture<String> postMultipart(String url, MultipartBody body, Map<String, String> headers) {
         Request request = new Request.Builder()
                 .url(url)
-                .headers(buildHeaders(headers, false)) // Multipart body sets its own content type
+                .headers(buildHeaders(headers, false)) 
                 .post(body)
                 .build();
         return executeAsync(request);
     }
-
 
     @Override
     public CompletableFuture<String> patch(String url, String jsonPayload, Map<String, String> headers) {

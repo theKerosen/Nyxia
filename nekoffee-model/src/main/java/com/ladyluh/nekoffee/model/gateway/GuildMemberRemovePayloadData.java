@@ -10,7 +10,6 @@ public class GuildMemberRemovePayloadData {
     @JsonProperty("user")
     private UserImpl user;
 
-
     public String getGuildId() {
         return guildId;
     }

@@ -29,5 +29,4 @@ public class MessageCreateEvent extends AbstractEvent {
         return message.getChannelId();
     }
 
-
 }

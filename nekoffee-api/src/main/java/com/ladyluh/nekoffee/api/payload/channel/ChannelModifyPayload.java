@@ -24,7 +24,6 @@ public class ChannelModifyPayload {
     @JsonProperty("bitrate")
     private Integer bitrate;
 
-
     public String getName() {
         return name;
     }

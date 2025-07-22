@@ -2,7 +2,6 @@ package com.ladyluh.nekoffee.model.gateway;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-
 public class VoiceStatePayloadData {
     @JsonProperty("guild_id")
     private String guildId;
@@ -12,7 +11,6 @@ public class VoiceStatePayloadData {
 
     @JsonProperty("user_id")
     private String userId;
-
 
     @JsonProperty("session_id")
     private String sessionId;
@@ -37,7 +35,6 @@ public class VoiceStatePayloadData {
 
     @JsonProperty("suppress")
     private boolean suppress;
-
 
     public String getGuildId() {
         return guildId;

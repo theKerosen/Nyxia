@@ -1,6 +1,5 @@
 package com.ladyluh.nekoffee.commands.impl;
 
-
 import com.ladyluh.nekoffee.commands.Command;
 import com.ladyluh.nekoffee.commands.CommandContext;
 

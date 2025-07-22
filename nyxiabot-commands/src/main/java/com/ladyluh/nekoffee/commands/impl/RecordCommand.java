@@ -93,8 +93,8 @@ public class RecordCommand implements Command {
     }
 
     private CompletableFuture<Void> handleStop(CommandContext ctx, String voiceChannelid) {
+        ctx.reply("⏹️ Gravação parada. Processando e enviando os arquivos...");
         return recordingService.stopRecording(ctx.getGuildId(), voiceChannelid)
-                .thenCompose(v -> ctx.reply("⏹️ Gravação parada. Processando e enviando os arquivos..."))
                 .exceptionally(ex -> {
                     Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                     ctx.reply("⚠️ Erro ao parar a gravação: " + cause.getMessage());
